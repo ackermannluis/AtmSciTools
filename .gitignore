@@ -53,6 +53,7 @@ coverage.xml
 
 # Other stuff:
 per_inf_dict.npy
+cdsapirc
 
 # Translations
 *.mo
