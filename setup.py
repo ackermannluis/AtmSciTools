@@ -34,6 +34,8 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
     ],
+    include_package_data=True,
+    package_data={'': ['*.nc','cdsapirc']},
     keywords="weather meteorology instrumentation",
     packages=find_packages(exclude=["contrib", "docs", "tests", "notebooks"]),
     install_requires=["numpy", "netCDF4", "scipy", "paramiko", "matplotlib"],
