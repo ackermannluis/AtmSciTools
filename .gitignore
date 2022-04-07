@@ -51,6 +51,9 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
+# Other stuff:
+per_inf_dict.npy
+
 # Translations
 *.mo
 *.pot
