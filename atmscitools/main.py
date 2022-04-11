@@ -3807,6 +3807,20 @@ def compress_file_list_zip(filename_list, output_filename, compression_='ZIP_DEF
         print(error_msg)
         return 1
 def zip_file_list_all_items_inside(zip_filename):
+    """
+    Lists all the contents' names inside a zip file
+
+    Parameters:
+    ===========
+        zip_filename: str
+            Full filename to zip file
+
+    Returns:
+    ========
+        item_names: list
+            a sorted list of all item names inside the zip file.
+    """
+
     zip_archive = zipfile.ZipFile(zip_filename)
     zip_file_list_full = list(zip_archive.filelist)
     zip_archive.close()
@@ -3824,15 +3838,26 @@ def extract_all_from_zip_to_memory(zip_filename):
     return {name: input_zip.read(name) for name in input_zip.namelist()}
 def extract_item_from_zip_to_memory(zip_filename, item_name):
     """
-    Extracts all items inside a zip file and creates a dictionary that is loaded to ram
-    :param zip_filename: string with the filename of the zip file
-    :param item_name: string with the name of the item that is inside the zip
-    :return: object
-    """
-    in_memory_zip = BytesIO()
+    Extracts the bytes of an item from inside a zip file
 
-    input_zip = zipfile.ZipFile(zip_filename)
-    return input_zip.read(item_name)
+    Parameters:
+    ===========
+        zip_filename: str
+            Full filename to zip file
+
+        item_name: str
+            name of the item to be extracted
+
+    Returns:
+    ========
+        item_bytes_str: str
+            bytes of the extracted item
+
+    """
+    zip_archive = zipfile.ZipFile(zip_filename)
+    item_bytes_str = zip_archive.read(item_name)
+    zip_archive.close()
+    return item_bytes_str
 
 
 # sattelite data load
