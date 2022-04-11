@@ -3857,6 +3857,7 @@ def extract_item_from_zip_to_memory(zip_filename, item_name):
     zip_archive = zipfile.ZipFile(zip_filename)
     item_bytes_str = zip_archive.read(item_name)
     zip_archive.close()
+
     return item_bytes_str
 
 
