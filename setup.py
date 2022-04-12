@@ -38,6 +38,7 @@ setup(
     package_data={'': ['*.nc','cdsapirc']},
     keywords="weather meteorology instrumentation",
     packages=find_packages(exclude=["contrib", "docs", "tests", "notebooks"]),
-    install_requires=["numpy", "netCDF4", "scipy", "paramiko", "matplotlib"],
+    install_requires=["scp", "xlrd", "imageio", "pyproj", "requests", "numpy", "netCDF4", "scipy", "paramiko",
+                      "matplotlib", 'Pillow'],
     project_urls={"Source": "https://github.com/ackermannluis/AtmSciTools/",},
 )

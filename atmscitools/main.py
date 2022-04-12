@@ -37,14 +37,22 @@ from email.mime.image import MIMEImage
 from math import e as e_constant
 import math
 from tkinter import filedialog
+from pathlib import Path as Path_pathlib
+
+
 from PIL import Image as PIL_Image
 from PIL.PngImagePlugin import PngInfo
-
 import numpy as np
 import matplotlib
 from scipy.stats import ttest_ind, mode
 import netCDF4 as nc
 from paramiko import SSHClient, AutoAddPolicy
+import requests
+from xlrd import open_workbook
+from xlrd.xldate import xldate_as_datetime
+from scp import SCPClient
+import imageio
+import pyproj as proj
 
 from numpy import genfromtxt
 from scipy.optimize import curve_fit
@@ -61,51 +69,33 @@ import matplotlib.patches as mpatches
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import LassoSelector
 from matplotlib.path import Path
-from pathlib import Path as Path_pathlib
 
-# <editor-fold desc="conditional imports">
+# <editor-fold desc="conditional imports that are troublesome">
 try:
     from mpl_toolkits.basemap import Basemap
+    basemap_available = True
 except:
-    print('no basemap')
+    print('Optional module basemap was not found, some functions will not be available')
+    basemap_available = False
 try:
     import cartopy.crs as ccrs
+    cartopy_available = True
 except:
-    print('no cartopy')
+    print('Optional module cartopy was not found, some functions will not be available')
+    cartopy_available = False
 try:
     import wrf
+    wrf_available = True
 except:
-    print('no wrf')
-try:
-    import pyproj as proj
-except:
-    print('no pyproj')
+    print('Optional module wrf was not found, some functions will not be available')
+    wrf_available = False
 
-try:
-    import imageio
-except:
-    print('no imageio')
-try:
-    from xlrd import open_workbook
-    from xlrd.xldate import xldate_as_datetime
-except:
-    print('no xlrd')
-try:
-    import requests
-except:
-    print('no requests')
-try:
-    from scp import SCPClient
-except:
-    print('no SCPClient')
-
-
-
+# </editor-fold>
 
 
 import warnings
 warnings.filterwarnings("ignore")
-# </editor-fold>
+
 
 AtmSciTools_path = str(Path_pathlib(__file__).parent)
 sys.path.append(AtmSciTools_path)
@@ -169,6 +159,8 @@ try:
 
 except:
     print('no personal information found!')
+    print('to create a personal information file for future use, '
+          'run create_personal_information_file and follow the promts')
     my_email = None
     sending_email = None
     sending_email_password = None
