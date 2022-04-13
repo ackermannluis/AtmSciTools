@@ -27,3 +27,4 @@ try:
 except:
     print('no SkewT_V2')
 
+from .main import *
