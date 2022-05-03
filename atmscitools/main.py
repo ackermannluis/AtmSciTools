@@ -113,17 +113,17 @@ except:
     topo_arr = None
 
 try:
-    access_nc_sfc = nc.Dataset(AtmSciTools_path + '/ACCESS_VT_1_topog.nc')
-    access_lat = access_nc_sfc.variables['lat'][:].filled(np.nan)
-    access_lon = access_nc_sfc.variables['lon'][:].filled(np.nan)
-    access_topo = access_nc_sfc.variables['topog'][0, :, :].filled(np.nan)
+    access_nc_sfc = nc.Dataset(AtmSciTools_path + '/topo_1km_australia.nc')
+    highres_lat = access_nc_sfc.variables['lat'][:].filled(np.nan)
+    highres_lon = access_nc_sfc.variables['lon'][:].filled(np.nan)
+    highres_topo = access_nc_sfc.variables['topog'][:].filled(np.nan)
     access_nc_sfc.close()
 except:
-    print('no high resolution (Victoria and Tasmania) topographical file found! ' +
+    print('no high resolution (1km for Australia) topographical file found! ' +
           'This is used by add_coastline_to_ax (replacement of Basemap or Cartopy')
-    access_lat = None
-    access_lon = None
-    access_topo = None
+    highres_lat = None
+    highres_lon = None
+    highres_topo = None
 
 try:
     # # to update the personal info dictionary
@@ -156,7 +156,6 @@ try:
     bom_password = per_inf_dict['bom_password']
     bom_hostname = per_inf_dict['bom_hostname']
     bom_homepath = per_inf_dict['bom_homepath']
-
 except:
     print('no personal information found!')
     print('to create a personal information file for future use, '
@@ -13466,13 +13465,13 @@ def add_countour_to_ax(ax, x_, y_, arr_, countour_lines_values_list,
     return contours
 def add_coastline_to_ax(ax, coastline_color='yellow'):
     x_1, x_2, y_1, y_2 = get_ax_range(ax)
-    if access_topo is None and topo_arr is None:
+    if highres_topo is None and topo_arr is None:
         print('No local topographical files available to plot coastlines. ' +
               'You will need to use functions relying on Basemap or Cartopy')
-    elif access_topo is not None \
-            and x_1>access_lon.min() and x_2<access_lon.max() \
-            and y_1>access_lat.min() and y_2<access_lat.max():
-        add_countour_to_ax(ax, access_lon, access_lat, access_topo, [0], [coastline_color])
+    elif highres_topo is not None \
+            and x_1>highres_lon.min() and x_2<highres_lon.max() \
+            and y_1>highres_lat.min() and y_2<highres_lat.max():
+        add_countour_to_ax(ax, highres_lon, highres_lat, highres_topo, [0], [coastline_color])
     elif topo_arr is not None:
         add_countour_to_ax(ax, topo_lon, topo_lat, topo_arr, [0], [coastline_color])
     else:
