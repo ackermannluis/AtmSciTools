@@ -13465,17 +13465,31 @@ def add_countour_to_ax(ax, x_, y_, arr_, countour_lines_values_list,
     return contours
 def add_coastline_to_ax(ax, coastline_color='yellow'):
     x_1, x_2, y_1, y_2 = get_ax_range(ax)
+    x_1 -= 1
+    x_2 += 1
+    y_1 -= 1
+    y_2 += 1
     if highres_topo is None and topo_arr is None:
         print('No local topographical files available to plot coastlines. ' +
               'You will need to use functions relying on Basemap or Cartopy')
     elif highres_topo is not None \
-            and x_1>highres_lon.min() and x_2<highres_lon.max() \
-            and y_1>highres_lat.min() and y_2<highres_lat.max():
-        add_countour_to_ax(ax, highres_lon, highres_lat, highres_topo, [0], [coastline_color])
+            and x_1 > highres_lon.min() and x_2 < highres_lon.max() \
+            and y_1 > highres_lat.min() and y_2 < highres_lat.max():
+        row_2 = time_to_row_sec(highres_lat, y_1)
+        row_1 = time_to_row_sec(highres_lat, y_2)
+        col_1 = time_to_row_sec(highres_lon, x_1)
+        col_2 = time_to_row_sec(highres_lon, x_2)
+        add_countour_to_ax(ax, highres_lon[col_1:col_2], highres_lat[row_1:row_2],
+                           highres_topo[row_1:row_2,col_1:col_2], [0], [coastline_color])
     elif topo_arr is not None:
-        add_countour_to_ax(ax, topo_lon, topo_lat, topo_arr, [0], [coastline_color])
+        row_1 = time_to_row_sec(topo_lat, y_1)
+        row_2 = time_to_row_sec(topo_lat, y_2)
+        col_1 = time_to_row_sec(topo_lon, x_1)
+        col_2 = time_to_row_sec(topo_lon, x_2)
+        add_countour_to_ax(ax, topo_lon[col_1:col_2], topo_lat[row_1:row_2],
+                           topo_arr[row_1:row_2,col_1:col_2], [0], [coastline_color])
     else:
-        print('domain is outside of Tasmania and Victoria, and global topographical file is not available'+
+        print('domain is outside of high resolution domain, and global topographical file is not available' +
               'You will need to use functions relying on Basemap or Cartopy')
 def y_axis_labels_and_ticks_to_right(ax):
     try:
