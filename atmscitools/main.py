@@ -70,6 +70,10 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import LassoSelector
 from matplotlib.path import Path
 
+import IMProToo_mod
+import SkewT_V2 as SkewT
+import cdsapi
+
 # <editor-fold desc="conditional imports that are troublesome">
 try:
     from mpl_toolkits.basemap import Basemap
@@ -124,55 +128,6 @@ except:
     highres_lat = None
     highres_lon = None
     highres_topo = None
-
-try:
-    # # to update the personal info dictionary
-    # per_inf_dict = {
-    #     'my_email'                : my_email,
-    #     'sending_email'           : sending_email,
-    #     'sending_email_password'  : sending_email_password,
-    #     'gadi_username'           : gadi_username,
-    #     'gadi_password'           : gadi_password,
-    #     'gadi_hostname'           : gadi_hostname,
-    #     'gadi_homepath'           : gadi_homepath,
-    #
-    #     'bom_username'            : bom_username,
-    #     'bom_password'            : bom_password,
-    #     'bom_hostname'            : bom_hostname,
-    #     'bom_homepath'            : bom_homepath,
-    #
-    # }
-    # np.save('per_inf_dict.npy', per_inf_dict)
-
-    per_inf_dict = np.load(AtmSciTools_path + '/per_inf_dict.npy', allow_pickle=True).item()
-    my_email = per_inf_dict['my_email']
-    sending_email = per_inf_dict['sending_email']
-    sending_email_password = per_inf_dict['sending_email_password']
-    gadi_username = per_inf_dict['gadi_username']
-    gadi_password = per_inf_dict['gadi_password']
-    gadi_hostname = per_inf_dict['gadi_hostname']
-    gadi_homepath = per_inf_dict['gadi_homepath']
-    bom_username = per_inf_dict['bom_username']
-    bom_password = per_inf_dict['bom_password']
-    bom_hostname = per_inf_dict['bom_hostname']
-    bom_homepath = per_inf_dict['bom_homepath']
-except:
-    print('no personal information found!')
-    print('to create a personal information file for future use, '
-          'run create_personal_information_file and follow the promts')
-    my_email = None
-    sending_email = None
-    sending_email_password = None
-    gadi_username = None
-    gadi_password = None
-    gadi_hostname = None
-    gadi_homepath = None
-    bom_username = None
-    bom_password = None
-    bom_hostname = None
-    bom_homepath = None
-
-
 
 
 try:
@@ -384,8 +339,7 @@ def read_email_subjects_from_gmail(FROM_EMAIL, FROM_PWD, emails_to_be_read=6):
                 email_subject = msg['subject']
                 email_list.append(email_subject)
     return email_list
-def send_gmail(subject_='', body_text='', to_=my_email,
-               from_=sending_email, password_=sending_email_password, attachement_image_s=None):
+def send_gmail(subject_, body_text, to_, from_, password_, attachement_image_s=None):
     try:
         msg = MIMEMultipart()
         msg['From'] = from_  # Type your own gmail address
@@ -986,7 +940,7 @@ def download_ftp_all_files_in_path(remote_path, output_path):
 
     ftp.quit()
 def ftp_put_file(local_filename, remote_path,
-                 host_name=bom_hostname, user_name=bom_username, password_=bom_password):
+                 host_name, user_name, password_):
     from pathlib import Path
     local_file_path = Path(local_filename)
 
@@ -998,7 +952,7 @@ def ftp_put_file(local_filename, remote_path,
 
     ftp.quit()
 def ftp_get_file(remote_filename, local_path,
-                 host_name=bom_hostname, user_name=bom_username, password_=bom_password):
+                 host_name, user_name, password_):
     from pathlib import Path
     remote_file_path = Path(remote_filename)
 
@@ -1059,7 +1013,7 @@ def rename_files_to_number_series(file_list, path_output=path_output, zfill_ = 3
     for i_, filename_ in enumerate(file_list):
         os.rename(filename_, path_output + str(i_).zfill(zfill_) + '.png')
 def SCP_get_file(remote_filename_or_path, local_destination_path,
-                 user_name=gadi_username, host_name=gadi_hostname, password_=gadi_password, recursive=False, port_=22):
+                 user_name, host_name, password_, recursive=False, port_=22):
     ssh = SSHClient()
     ssh.load_system_host_keys()
     ssh.set_missing_host_key_policy(AutoAddPolicy())
@@ -1076,7 +1030,7 @@ def SCP_get_file(remote_filename_or_path, local_destination_path,
 
     scp.close()
 def SCP_put_file(local_filename_or_path, remote_destination_path,
-                 user_name=gadi_username, host_name=gadi_hostname, password_=gadi_password, port_=22):
+                 user_name, host_name, password_, port_=22):
     ssh = SSHClient()
     ssh.load_system_host_keys()
     ssh.set_missing_host_key_policy(AutoAddPolicy())
@@ -1093,7 +1047,7 @@ def SCP_put_file(local_filename_or_path, remote_destination_path,
 
     scp.close()
 def list_files_remote(remote_path,
-                      user_name=gadi_username, host_name=gadi_hostname, password_=gadi_password, recursive=False):
+                      user_name, host_name, password_, recursive=False):
     ssh = SSHClient()
     ssh.load_system_host_keys()
     ssh.set_missing_host_key_policy(AutoAddPolicy())
@@ -3355,6 +3309,19 @@ def distance_between_to_points_in_meters(point_1_latlon, point_2_latlon):
     del_lon = (point_1_latlon[1] - point_2_latlon[1]) * m_per_deg_lon
 
     return ((del_lat**2) + (del_lon**2))**0.5
+def make_circle_x_y_arrays_lat_lon(center_lat, center_lon, radius_meters, points_=360):
+    theta = np.linspace(0, 2 * np.pi, points_)
+    deg_per_m_lat, deg_per_m_lon = degrees_per_meter(center_lat)
+    radius_lat = deg_per_m_lat * radius_meters
+    radius_lon = deg_per_m_lon * radius_meters
+    x_ = radius_lon * np.cos(theta) + center_lon
+    y_ = radius_lat * np.sin(theta) + center_lat
+    return x_, y_
+def make_circle_x_y_arrays(center_x, center_y, radius_, points_=360):
+    theta = np.linspace(0, 2 * np.pi, points_)
+    x_ = radius_ * np.cos(theta) + center_x
+    y_ = radius_ * np.sin(theta) + center_y
+    return x_, y_
 
 
 # Data Loading
@@ -5857,6 +5824,50 @@ def create_file_for_particle_trajectory_from_ACCESS(filename_, time_lat_lon_heig
         file_.write(str(array_instead_of_dict))
 
     file_.close()
+
+# Radar
+def radar_spherical_to_cartesian(azimuth_, elevation_, range_, radar_alt=0.):
+    """
+
+    """
+    range_2d = np.zeros((azimuth_.shape[0], range_.shape[0]))
+    elevation_2d = np.zeros((azimuth_.shape[0], range_.shape[0]))
+    azimuth_2d = np.zeros((azimuth_.shape[0], range_.shape[0]))
+
+    for row_ in range(azimuth_.shape[0]):
+        range_2d[row_, :] = range_[:]
+    for column_ in range(range_.shape[0]):
+        elevation_2d[:, column_] = elevation_
+        azimuth_2d[:, column_] = azimuth_
+
+
+    radius_earth = 6371000
+    elevation_2d_rad = np.deg2rad(elevation_2d)
+    azimuth_2d_rad = np.deg2rad(azimuth_2d)
+
+
+
+    altitude_m = radar_alt + ( (range_2d * np.cos(elevation_2d_rad))**2 +
+                               (radius_earth + range_2d * np.sin(elevation_2d_rad))**2 )**0.5 - radius_earth
+
+    horizontal_dist_m = radius_earth * np.arctan((range_2d * np.cos(elevation_2d_rad) /
+                                                  ((range_2d * np.sin(elevation_2d_rad)) + radius_earth)))
+
+
+    distance_north_m = horizontal_dist_m * np.cos(azimuth_2d_rad)
+    distance_east__m = horizontal_dist_m * np.sin(azimuth_2d_rad)
+
+    return altitude_m, distance_north_m, distance_east__m
+def radar_cartesian_m_to_degrees(distance_north_m, distance_east__m, radar_lat_lon_tuple):
+
+    deg_per_m_lat, deg_per_m_lon = degrees_per_meter(radar_lat_lon_tuple[0])
+
+    distance_north_deg = radar_lat_lon_tuple[0] + deg_per_m_lat * distance_north_m
+    distance_east_deg = radar_lat_lon_tuple[1] + deg_per_m_lon * distance_east__m
+
+    return distance_north_deg, distance_east_deg
+def radar_reshape_field_3d(field_, azimuth_, range_, sweep_size=360):
+    return field_.reshape((int(azimuth_.shape[0] / sweep_size), sweep_size, range_.shape[0]))
 
 
 
