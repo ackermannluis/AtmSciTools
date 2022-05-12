@@ -378,7 +378,31 @@ def log_msg(text_, process_id):
     log_file = open(path_log + process_id + '.log', 'a')
     log_file.write(time_seconds_to_str(time.time(), time_format_mod) + '\t' + text_ + '\n')
     log_file.close()
-
+def show_dict_summary(d, indent=0, max_value_characters=8, max_value_items=5, indent_max=5):
+    for key, value in d.items():
+        if isinstance(value, dict):
+            print('\t' * indent + str(key))
+            if indent < indent_max:
+                pretty(value, indent+1)
+            else:
+                print('\t' * indent + 'more dictionaries beyond max_indent, not shown')
+        elif isinstance(value, list):
+            print('\t' * indent + str(key) + '\t:\t',  value[:max_value_items])
+        elif type(value) == np.ndarray:
+            print('\t' * indent + str(key) + '\t:\t numpy array with shape',  value.shape)
+        elif type(value) == np.ma.core.MaskedArray:
+            print('\t' * indent + str(key) + '\t:\t masked numpy array with shape',  value.shape)
+        elif isinstance(value, str):
+            if len(value) > max_value_characters:
+                print('\t' * indent + str(key) + '\t:\t', value[:max_value_characters], '...')
+            else:
+                print('\t' * indent + str(key) + '\t:\t', value)
+        elif isinstance(value, float):
+            print('\t' * indent + str(key) + '\t:\t', np.round(value,max_value_characters))
+        elif isinstance(value, int):
+            print('\t' * indent + str(key) + '\t:\t', value)
+        else:
+            print('\t' * indent + str(key) + '\t:\t', '[some object with unknown type]')
 def pretty(d, indent=0):
     for key, value in d.items():
         print('\t' * indent + str(key))
