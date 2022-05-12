@@ -7659,7 +7659,47 @@ def MRR_PRO_process_IMProToo_7(filename_netcdf_MRR_Pro, output_filename,
     save_dictionary_to_netcdf(dict_, output_filename)
 
     file_CM.close()
+def MRR_fix_raw_file(filename_):
+    # get file text into line list
+    with open(filename_, 'r') as file_:
+        line_txt = ' '
+        counter_ = 0
+        line_txt_list = []
+        while line_txt != '':
+            try:
+                line_txt = file_.readline()
+            except:
+                pass
+            line_txt_list.append(line_txt)
+            counter_ += 1
 
+    final_line_list = []
+    r_ = -1
+    while r_ < len(line_txt_list) and line_txt_list[r_+1] != '':
+        r_ += 1
+        if line_txt_list[r_][0] == 'M':
+            #start new scan
+            scan_lines = [line_txt_list[r_]]
+            while r_ < len(line_txt_list) and line_txt_list[r_+1] != '':
+                r_ += 1
+                if line_txt_list[r_][0] != 'M':
+                    scan_lines.append(line_txt_list[r_])
+                else:
+                    r_ -= 1
+                    break
+            if len(scan_lines) == 67 and scan_lines[1][0] == 'H' and scan_lines[2][:2] == 'TF':
+                all_Fs_present = True
+                for i_, lines_ in enumerate(scan_lines[3:]):
+                    if lines_[:3] != 'F' + str(i_).zfill(2):
+                        all_Fs_present = False
+
+                if all_Fs_present:
+                    for line_ in scan_lines:
+                        final_line_list.append(line_)
+
+    with open(filename_, 'w') as file_:
+        for line_txt in final_line_list:
+            file_.write(line_txt)
 
 
 def MRR_load_snow_period_to_dict(site_name_or_path, start_time_YMDHM, stop_time_YMDHM,
