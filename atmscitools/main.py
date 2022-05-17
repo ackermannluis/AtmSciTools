@@ -378,16 +378,18 @@ def log_msg(text_, process_id):
     log_file = open(path_log + process_id + '.log', 'a')
     log_file.write(time_seconds_to_str(time.time(), time_format_mod) + '\t' + text_ + '\n')
     log_file.close()
-def show_dict_summary(d, indent=0, max_value_characters=8, max_value_items=5, indent_max=5):
+def show_dict_summary(d, indent=0, max_value_characters=8, max_value_items=8, indent_max=5):
     for key, value in d.items():
         if isinstance(value, dict):
             print('\t' * indent + str(key))
             if indent < indent_max:
-                pretty(value, indent+1)
+                show_dict_summary(value, indent+1)
             else:
                 print('\t' * indent + 'more dictionaries beyond max_indent, not shown')
         elif isinstance(value, list):
             print('\t' * indent + str(key) + '\t:\t',  value[:max_value_items])
+        elif isinstance(value, tuple):
+            print('\t' * indent + str(key) + '\t:\t', value)
         elif type(value) == np.ndarray:
             print('\t' * indent + str(key) + '\t:\t numpy array with shape',  value.shape)
         elif type(value) == np.ma.core.MaskedArray:
