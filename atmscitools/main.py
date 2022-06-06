@@ -79,19 +79,16 @@ try:
     from mpl_toolkits.basemap import Basemap
     basemap_available = True
 except:
-    print('Optional module basemap was not found, some functions will not be available')
     basemap_available = False
 try:
     import cartopy.crs as ccrs
     cartopy_available = True
 except:
-    print('Optional module cartopy was not found, some functions will not be available')
     cartopy_available = False
 try:
     import wrf
     wrf_available = True
 except:
-    print('Optional module wrf was not found, some functions will not be available')
     wrf_available = False
 
 # </editor-fold>
@@ -103,32 +100,18 @@ warnings.filterwarnings("ignore")
 
 AtmSciTools_path = str(Path_pathlib(__file__).parent)
 sys.path.append(AtmSciTools_path)
-try:
-    topo_nc = nc.Dataset(AtmSciTools_path + '/topo_0_1degrees.nc')
-    topo_lat = topo_nc.variables['lat'][:].data
-    topo_lon = topo_nc.variables['lon'][:].data
-    topo_arr = topo_nc.variables['z'][:].data
-    topo_nc.close()
-except:
-    print('no topographical file found! ' +
-          'This is used to create quick orthogonal maps (replacement of Basemap or Cartopy')
-    topo_lat = None
-    topo_lon = None
-    topo_arr = None
 
-try:
-    access_nc_sfc = nc.Dataset(AtmSciTools_path + '/topo_1km_australia.nc')
-    highres_lat = access_nc_sfc.variables['lat'][:].filled(np.nan)
-    highres_lon = access_nc_sfc.variables['lon'][:].filled(np.nan)
-    highres_topo = access_nc_sfc.variables['topog'][:].filled(np.nan)
-    access_nc_sfc.close()
-except:
-    print('no high resolution (1km for Australia) topographical file found! ' +
-          'This is used by add_coastline_to_ax (replacement of Basemap or Cartopy')
-    highres_lat = None
-    highres_lon = None
-    highres_topo = None
+topo_nc = nc.Dataset(AtmSciTools_path + '/topo_0_1degrees.nc')
+topo_lat = topo_nc.variables['lat'][:].data
+topo_lon = topo_nc.variables['lon'][:].data
+topo_arr = topo_nc.variables['z'][:].data
+topo_nc.close()
 
+access_nc_sfc = nc.Dataset(AtmSciTools_path + '/topo_1km_australia.nc')
+highres_lat = access_nc_sfc.variables['lat'][:].filled(np.nan)
+highres_lon = access_nc_sfc.variables['lon'][:].filled(np.nan)
+highres_topo = access_nc_sfc.variables['topog'][:].filled(np.nan)
+access_nc_sfc.close()
 
 try:
     matplotlib.use('Qt5Agg')
@@ -1673,7 +1656,9 @@ def create_virtual_sonde_from_wrf(sonde_dict, filelist_wrf_output,
 
     return wrf_sonde_dict
 def create_virtual_sonde_from_wrf_single_point(wrf_nc, point_lat, point_lon):
-
+    if ~wrf_available:
+        print('Optional module wrf was not found, this functions is not available. Please install wrf')
+        return None
     wrf_lat, wrf_lon = wrf_get_lat_lon(wrf_nc)
 
     sonde_wrf_index = find_index_from_lat_lon_2D_arrays(wrf_lat, wrf_lon, point_lat, point_lon)
@@ -4784,6 +4769,10 @@ def hysplit_download_and_save_gifs():
 def plot_hysplit_traj(arr_, resolution_='i', format_='%.2f', cbar_label='', cmap_ = default_cm,
                       color_='gray',dot_size = 15, map_pad=0.05,
                       min_lat=None,max_lat=None,min_lon=None,max_lon=None, ticks_=5., linewidth_=5):
+    if ~basemap_available:
+        print('Optional module basemap was not found, this functions is not available. Please install basemap')
+        return None
+
     fig, ax = plt.subplots()
 
     if min_lat is None: min_lat = np.nanmin(arr_[:,7])
@@ -4816,6 +4805,10 @@ def plot_hysplit_traj(arr_, resolution_='i', format_='%.2f', cbar_label='', cmap
 
     plt.show()
 def plot_hysplit_traj_fix(file_list, lat_tuple, lon_tuple, out_path):
+    if ~basemap_available:
+        print('Optional module basemap was not found, this functions is not available. Please install basemap')
+        return None
+
     number_of_hours = 24
     for filename_ in file_list:
         arr_ = hysplit_load_freq_endpoints(filename_, number_of_hours)
@@ -10496,7 +10489,9 @@ def WRF_emission_file_modify(filename_, variable_name, cell_index_west_east, cel
 def find_wrf_3d_cell_from_latlon_to_south_north_west_east(lat_, lon_, wrf_output_filename,
                                                           wrf_lat_variablename='XLAT', wrf_lon_variablename='XLONG',
                                                           flatten_=False):
-
+    if ~wrf_available:
+        print('Optional module wrf was not found, this functions is not available. Please install wrf')
+        return None
     netcdf_file_object_wrf = nc.Dataset(wrf_output_filename, 'r')
     wrf_lat_array = netcdf_file_object_wrf.variables[wrf_lat_variablename][:,:].copy()
     wrf_lon_array = netcdf_file_object_wrf.variables[wrf_lon_variablename][:,:].copy()
@@ -13526,13 +13521,16 @@ def add_colorbar_to_ax(fig, ax, plot_image_or_scatter, format='%.2f', orientatio
     cbar_ = fig.colorbar(plot_image_or_scatter, cax=ax, format=format, orientation=orientation)
     return cbar_
 def add_countour_to_ax(ax, x_, y_, arr_, countour_lines_values_list,
-                       color_list=None, style_list=None, labels_=False, labels_font_size=8, filled_=False):
+                       color_list=None, style_list=None, labels_=False,
+                       labels_font_size=8, filled_=False, zorder_=None):
     x_1, x_2, y_1, y_2 = get_ax_range(ax)
 
     if filled_:
-        contours = ax.contourf(x_, y_, arr_, countour_lines_values_list, colors=color_list, linestyles=style_list,zorder=0)
+        contours = ax.contourf(x_, y_, arr_, countour_lines_values_list, colors=color_list,
+                               linestyles=style_list,zorder=zorder_)
     else:
-        contours = ax.contour(x_, y_, arr_,countour_lines_values_list, colors=color_list, linestyles=style_list)
+        contours = ax.contour(x_, y_, arr_,countour_lines_values_list, colors=color_list,
+                              linestyles=style_list, zorder=zorder_)
     if labels_:
         plt.rc('font', size=labels_font_size)  # controls default text sizes
         ax.clabel(contours, contours.levels, inline=True, fmt='%i')
@@ -13546,28 +13544,22 @@ def add_coastline_to_ax(ax, coastline_color='yellow'):
     x_2 += 1
     y_1 -= 1
     y_2 += 1
-    if highres_topo is None and topo_arr is None:
-        print('No local topographical files available to plot coastlines. ' +
-              'You will need to use functions relying on Basemap or Cartopy')
-    elif highres_topo is not None \
-            and x_1 > highres_lon.min() and x_2 < highres_lon.max() \
-            and y_1 > highres_lat.min() and y_2 < highres_lat.max():
+
+    if x_1 > highres_lon.min() and x_2 < highres_lon.max() and y_1 > highres_lat.min() and y_2 < highres_lat.max():
         row_2 = time_to_row_sec(highres_lat, y_1)
         row_1 = time_to_row_sec(highres_lat, y_2)
         col_1 = time_to_row_sec(highres_lon, x_1)
         col_2 = time_to_row_sec(highres_lon, x_2)
         add_countour_to_ax(ax, highres_lon[col_1:col_2], highres_lat[row_1:row_2],
                            highres_topo[row_1:row_2,col_1:col_2], [0], [coastline_color])
-    elif topo_arr is not None:
+    else:
         row_1 = time_to_row_sec(topo_lat, y_1)
         row_2 = time_to_row_sec(topo_lat, y_2)
         col_1 = time_to_row_sec(topo_lon, x_1)
         col_2 = time_to_row_sec(topo_lon, x_2)
         add_countour_to_ax(ax, topo_lon[col_1:col_2], topo_lat[row_1:row_2],
                            topo_arr[row_1:row_2,col_1:col_2], [0], [coastline_color])
-    else:
-        print('domain is outside of high resolution domain, and global topographical file is not available' +
-              'You will need to use functions relying on Basemap or Cartopy')
+
 def y_axis_labels_and_ticks_to_right(ax):
     try:
         shape_ = ax.shape
@@ -14312,7 +14304,9 @@ def plot_wind_over_map(lat_series, lon_series, U_series, V_series, size_=1, reso
                        save_fig=False, figure_filename='', projection_='merc',
                        show_grid = False, grid_step=5, lake_area_thresh=9999, coast_color='blue',
                        arrow_headwidth=3, arrow_headlength=5,arrow_headaxislength=4.5):
-
+    if ~basemap_available:
+        print('Optional module basemap was not found, this functions is not available. Please install basemap')
+        return None
 
     if fig_ax is not None:
         fig, ax = fig_ax
@@ -14415,134 +14409,6 @@ def plot_wind_over_map(lat_series, lon_series, U_series, V_series, size_=1, reso
     return fig, ax, map_, q_
 
 
-def plot_series_over_map_cartopy(lat_series, lon_series, series_=None, resolution_='i', format_='%.2f', cbar_label='',
-                         map_=None, cmap_ = default_cm, size_=5, color_='black', contour_=False, fig_ax=None,
-                         figsize_= (10, 6), map_pad=0, min_lat=None, max_lat=None, min_lon=None, max_lon=None,
-                         vmin_=None, vmax_=None, save_fig=False, figure_filename='', projection_='merc',cbar_ax=None,
-                         show_grid = False, grid_step=5, add_line=False, lake_area_thresh=9999, lw_=0,show_cbar=True,
-                         cbar_orient='vertical', alpha_=1, epsg_=None,
-                         parallels_ticks_loc=[True, False, False, False],
-                         meridians_ticks_loc=[False, False, False, True],):
-    if fig_ax is not None:
-        fig, ax = fig_ax
-    else:
-        fig, ax = plt.subplots(figsize=figsize_)
-
-
-    if min_lat is None: min_lat = np.nanmin(lat_series)
-    if max_lat is None: max_lat = np.nanmax(lat_series)
-    if min_lon is None: min_lon = np.nanmin(lon_series)
-    if max_lon is None: max_lon = np.nanmax(lon_series)
-
-    if series_ is not None:
-        if vmin_ is None: vmin_ = np.nanmin(series_)
-        if vmax_ is None: vmax_ = np.nanmax(series_)
-
-    llcrnrlat_ = min_lat - ((max_lat - min_lat) * map_pad)
-    urcrnrlat_ = max_lat + ((max_lat - min_lat) * map_pad)
-    llcrnrlon_ = min_lon - ((max_lon - min_lon) * map_pad)
-    urcrnrlon_ = max_lon + ((max_lon - min_lon) * map_pad)
-
-    if llcrnrlat_ < -90 : llcrnrlat_ = -89
-    if urcrnrlat_ > 90: urcrnrlat_ = 89
-    if llcrnrlon_ < -180: llcrnrlon_ = -179
-    if urcrnrlon_ > 180: urcrnrlon_ = 179
-
-
-    if map_ is None:
-        if projection_ == 'merc':
-            map_ = Basemap(projection='merc',
-                           llcrnrlat = llcrnrlat_, urcrnrlat = urcrnrlat_,
-                           llcrnrlon = llcrnrlon_, urcrnrlon = urcrnrlon_,
-                           resolution=resolution_, area_thresh=lake_area_thresh,ax=ax, epsg=epsg_)
-        elif projection_ == 'geos':
-            map_ = Basemap(projection='geos',
-                           rsphere=(6378137.00, 6356752.3142),
-                           resolution=resolution_, area_thresh=lake_area_thresh,
-                           # llcrnrlat = llcrnrlat_, urcrnrlat = urcrnrlat_,
-                           # llcrnrlon = llcrnrlon_, urcrnrlon = urcrnrlon_,
-                           lon_0=140.7,
-                           satellite_height=35785831, ax=ax)
-        else:
-            map_ = Basemap(projection='lcc',
-                           llcrnrlat = llcrnrlat_, urcrnrlat = urcrnrlat_,
-                           llcrnrlon = llcrnrlon_, urcrnrlon = urcrnrlon_,
-                           resolution=resolution_, area_thresh=lake_area_thresh,
-                           lat_1=-10., lat_2=-30, lat_0=-17.5, lon_0=140.7,ax=ax, epsg=epsg_)
-    map_.drawcoastlines()
-    # m.fillcontinents(zorder=0)
-
-    map_.drawcountries()
-
-    if show_grid:
-        parallels = np.arange(min_lat, max_lat, grid_step)
-        # labels = [left,right,top,bottom]
-        map_.drawparallels(parallels, labels=parallels_ticks_loc)
-        meridians = np.arange(min_lon, max_lon, grid_step)
-        map_.drawmeridians(meridians, labels=meridians_ticks_loc)
-
-
-    x, y = map_(lon_series, lat_series)
-
-    if series_ is None:
-        trajs_ = ax.scatter(x, y, lw=lw_, c=color_, s=size_, alpha=alpha_)
-        if add_line:
-            ax.plot(x, y, color=color_)
-    else:
-        if len(series_.shape) == 1:
-            if contour_:
-                ax.tricontourf(x, y, series_, cmap=cmap_)
-            else:
-                trajs_ = ax.scatter(x, y, lw=lw_, c=series_, s=size_, vmin=vmin_, vmax=vmax_, cmap=cmap_, alpha=alpha_)
-                ax.format_coord = lambda x_fig, y_fig: 'x=%g, y=%g, v=%g' % (
-                    lon_series[int(np.argmin(np.abs(x - x_fig)))],
-                    lat_series[int(np.argmin(np.abs(y - y_fig)))],
-                    series_[int(np.argmin(np.abs(x - x_fig)**2 + np.abs(y - y_fig)**2))]
-                )
-                if show_cbar:
-                    if cbar_ax is None:
-                        color_bar = fig.colorbar(trajs_, format=format_, orientation=cbar_orient)
-                    else:
-                        color_bar = fig.colorbar(trajs_, format=format_, cax=cbar_ax, orientation=cbar_orient)
-                    color_bar.ax.set_ylabel(cbar_label)
-
-
-
-        else:
-            trajs_ = ax.pcolormesh(x, y, series_, cmap=cmap_, vmin=vmin_, vmax=vmax_, alpha=alpha_)
-            ax.format_coord = lambda x_fig, y_fig: 'x=%g, y=%g, v=%g' % (
-                lon_series[int(np.argmin(np.abs(x - x_fig)))],
-                lat_series[int(np.argmin(np.abs(y - y_fig)))],
-                series_[int(np.argmin(np.abs(x - x_fig))),
-                        int(np.argmin(np.abs(y - y_fig)))])
-            if show_cbar:
-                if cbar_ax is None:
-                    color_bar = fig.colorbar(trajs_, format=format_)
-                else:
-                    color_bar = fig.colorbar(trajs_, format=format_, cax=cbar_ax)
-                if cbar_orient == 'vertical':
-                    color_bar.ax.set_ylabel(cbar_label)
-                elif cbar_orient == 'horizontal':
-                    color_bar.ax.set_xlabel(cbar_label)
-                else:
-                    print('Error! color bar orientation not understood. Please select vertical or horizontal')
-
-
-
-    if save_fig or figure_filename != '':
-        if figure_filename == '':
-            name_ = str(calendar.timegm(time.gmtime()))[:-2]
-            fig.savefig(path_output + 'image_' + name_ + '.png', transparent=True, bbox_inches='tight')
-        else:
-            fig.savefig(figure_filename, transparent=True, bbox_inches='tight')
-
-        plt.close(fig)
-    else:
-        plt.show()
-
-    return fig, ax, map_
-
-
 def plot_series_over_map(lat_series, lon_series, series_=None, resolution_='i', format_='%.2f', cbar_label='',
                          map_=None, cmap_ = default_cm, size_=5, color_='black', contour_=False, fig_ax=None,
                          figsize_= (10, 6), map_pad=0, min_lat=None, max_lat=None, min_lon=None, max_lon=None,
@@ -14551,6 +14417,10 @@ def plot_series_over_map(lat_series, lon_series, series_=None, resolution_='i', 
                          cbar_orient='vertical', alpha_=1, epsg_=None, color_coast='black',
                          parallels_ticks_loc=[True, False, False, False],
                          meridians_ticks_loc=[False, False, False, True],):
+    if ~basemap_available:
+        print('Optional module basemap was not found, this functions is not available. Please install basemap')
+        return None
+
     if fig_ax is not None:
         fig, ax = fig_ax
     else:
@@ -14682,7 +14552,9 @@ def plot_arr_over_map(arr_, lat_arr, lon_arr, resolution_='i', format_='%.2f', c
                       parallels_ticks_loc=[True, False, False, False],
                       meridians_ticks_loc=[False, False, False, True],
                       ):
-
+    if ~basemap_available:
+        print('Optional module basemap was not found, this functions is not available. Please install basemap')
+        return None
 
     if fig_ax is not None:
         fig, ax = fig_ax
@@ -14832,6 +14704,10 @@ def plot_arr_over_map(arr_, lat_arr, lon_arr, resolution_='i', format_='%.2f', c
 
 def plot_arr_over_map_nc(nc_file, var_name=None, lat_name='lat', lon_name='lon',
                          time_name='time', time_row=None, time_str=None, level_index=None):
+    if ~basemap_available:
+        print('Optional module basemap was not found, this functions is not available. Please install basemap')
+        return None
+
     # open file in case the nc_file argument is a filename, close it when done
     close_nc=False
     if type(nc_file) == str:
@@ -14903,8 +14779,6 @@ def plot_arr_over_map_nc(nc_file, var_name=None, lat_name='lat', lon_name='lon',
     if close_nc: nc_file.close()
 
     return plot_arr_over_map(arr_, lat_, lon_, cbar_label=var_name, title_str=title_)
-
-
 
 
 def plot_3D_scatter(x_series, y_series, z_series, label_names_tuples_xyz=tuple(''), size_ = 15, color_='b'):
