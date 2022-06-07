@@ -13538,7 +13538,8 @@ def add_countour_to_ax(ax, x_, y_, arr_, countour_lines_values_list,
     ax.set_xlim((x_1, x_2))
     ax.set_ylim((y_1, y_2))
     return contours
-def add_coastline_to_ax(ax, coastline_color='yellow'):
+def add_coastline_to_ax(ax, coastline_color='yellow', filled_=True,
+                        filled_ocean_color='aqua', filled_land_color='saddlebrown', zorder_=0):
     x_1, x_2, y_1, y_2 = get_ax_range(ax)
     x_1 -= 1
     x_2 += 1
@@ -13550,15 +13551,31 @@ def add_coastline_to_ax(ax, coastline_color='yellow'):
         row_1 = time_to_row_sec(highres_lat, y_2)
         col_1 = time_to_row_sec(highres_lon, x_1)
         col_2 = time_to_row_sec(highres_lon, x_2)
-        add_countour_to_ax(ax, highres_lon[col_1:col_2], highres_lat[row_1:row_2],
-                           highres_topo[row_1:row_2,col_1:col_2], [0], [coastline_color])
+        if filled_:
+            add_countour_to_ax(ax, highres_lon[col_1:col_2], highres_lat[row_1:row_2],
+                               highres_topo[row_1:row_2,col_1:col_2],
+                               [-99999,0, 9999], [filled_ocean_color,filled_land_color, filled_land_color],
+                               filled_=True, zorder_=zorder_)
+        else:
+            add_countour_to_ax(ax, highres_lon[col_1:col_2], highres_lat[row_1:row_2],
+                               highres_topo[row_1:row_2,col_1:col_2],
+                               [0], [coastline_color], filled_=False, zorder_=zorder_)
     else:
         row_1 = time_to_row_sec(topo_lat, y_1)
         row_2 = time_to_row_sec(topo_lat, y_2)
         col_1 = time_to_row_sec(topo_lon, x_1)
         col_2 = time_to_row_sec(topo_lon, x_2)
-        add_countour_to_ax(ax, topo_lon[col_1:col_2], topo_lat[row_1:row_2],
-                           topo_arr[row_1:row_2,col_1:col_2], [0], [coastline_color])
+
+        if filled_:
+            add_countour_to_ax(ax, topo_lon[col_1:col_2], topo_lat[row_1:row_2],
+                               topo_arr[row_1:row_2,col_1:col_2],
+                               [-99999,0, 9999], [filled_ocean_color,filled_land_color, filled_land_color],
+                               filled_=True, zorder_=zorder_)
+        else:
+            add_countour_to_ax(ax, topo_lon[col_1:col_2], topo_lat[row_1:row_2],
+                               topo_arr[row_1:row_2,col_1:col_2],
+                               [0], [coastline_color], filled_=False, zorder_=zorder_)
+
 
 def y_axis_labels_and_ticks_to_right(ax):
     try:
