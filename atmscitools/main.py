@@ -13538,7 +13538,7 @@ def add_countour_to_ax(ax, x_, y_, arr_, countour_lines_values_list,
     ax.set_xlim((x_1, x_2))
     ax.set_ylim((y_1, y_2))
     return contours
-def add_coastline_to_ax(ax, coastline_color='yellow', filled_=True,
+def add_coastline_to_ax(ax, coastline_color='yellow', filled_=False,
                         filled_ocean_color='aqua', filled_land_color='saddlebrown', zorder_=0):
     x_1, x_2, y_1, y_2 = get_ax_range(ax)
     x_1 -= 1
