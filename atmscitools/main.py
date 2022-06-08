@@ -116,7 +116,10 @@ access_nc_sfc.close()
 try:
     matplotlib.use('Qt5Agg')
 except:
-    matplotlib.use('TkAgg')
+    try:
+        matplotlib.use('TkAgg')
+    except:
+        pass
 # plt.style.use('classic')
 # matplotlib.use('QT4Agg')
 
@@ -13539,7 +13542,7 @@ def add_countour_to_ax(ax, x_, y_, arr_, countour_lines_values_list,
     ax.set_ylim((y_1, y_2))
     return contours
 def add_coastline_to_ax(ax, coastline_color='yellow', filled_=False,
-                        filled_ocean_color='aqua', filled_land_color='saddlebrown', zorder_=0):
+                        filled_ocean_color='aqua', filled_land_color='saddlebrown', zorder_=None):
     x_1, x_2, y_1, y_2 = get_ax_range(ax)
     x_1 -= 1
     x_2 += 1
