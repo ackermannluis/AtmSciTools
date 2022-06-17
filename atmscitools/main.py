@@ -13542,7 +13542,7 @@ def add_countour_to_ax(ax, x_, y_, arr_, countour_lines_values_list,
     ax.set_ylim((y_1, y_2))
     return contours
 def add_coastline_to_ax(ax, coastline_color='yellow', filled_=False,
-                        filled_ocean_color='aqua', filled_land_color='saddlebrown', zorder_=None):
+                        filled_ocean_color='aqua', filled_land_color='saddlebrown'):
     x_1, x_2, y_1, y_2 = get_ax_range(ax)
     x_1 -= 1
     x_2 += 1
@@ -13558,11 +13558,12 @@ def add_coastline_to_ax(ax, coastline_color='yellow', filled_=False,
             add_countour_to_ax(ax, highres_lon[col_1:col_2], highres_lat[row_1:row_2],
                                highres_topo[row_1:row_2,col_1:col_2],
                                [-99999,0, 9999], [filled_ocean_color,filled_land_color, filled_land_color],
-                               filled_=True, zorder_=zorder_)
+                               filled_=True, zorder_=0)
         else:
             add_countour_to_ax(ax, highres_lon[col_1:col_2], highres_lat[row_1:row_2],
                                highres_topo[row_1:row_2,col_1:col_2],
-                               [0], [coastline_color], filled_=False, zorder_=zorder_)
+                               [0], [coastline_color], filled_=False,
+                               zorder_=max([_.zorder for _ in ax.get_children()]))
     else:
         row_1 = time_to_row_sec(topo_lat, y_1)
         row_2 = time_to_row_sec(topo_lat, y_2)
@@ -13573,11 +13574,12 @@ def add_coastline_to_ax(ax, coastline_color='yellow', filled_=False,
             add_countour_to_ax(ax, topo_lon[col_1:col_2], topo_lat[row_1:row_2],
                                topo_arr[row_1:row_2,col_1:col_2],
                                [-99999,0, 9999], [filled_ocean_color,filled_land_color, filled_land_color],
-                               filled_=True, zorder_=zorder_)
+                               filled_=True, zorder_=0)
         else:
             add_countour_to_ax(ax, topo_lon[col_1:col_2], topo_lat[row_1:row_2],
                                topo_arr[row_1:row_2,col_1:col_2],
-                               [0], [coastline_color], filled_=False, zorder_=zorder_)
+                               [0], [coastline_color], filled_=False,
+                               zorder_=max([_.zorder for _ in ax.get_children()]))
 
 
 def y_axis_labels_and_ticks_to_right(ax):
