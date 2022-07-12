@@ -908,7 +908,11 @@ def match_array_by_index(master_index, array_index, array_data, exact_match=True
                     last_r_data = rr_
                     break
     else:
-        output_array = np.zeros(master_index.shape)
+        # create output array
+        data_shape = array_data.shape
+        output_shape = list(data_shape)
+        output_shape[0] = master_index.shape[0]
+        output_array = np.zeros(output_shape, dtype=float) * np.nan
 
         for r_, index_ in enumerate(master_index):
             p_progress_bar(r_,master_index.shape[0])
