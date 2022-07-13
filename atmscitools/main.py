@@ -1205,7 +1205,7 @@ def unicode_symbols():
 
     print(text_)
 def pdf_convert_pages_to_images(pdf_filename, pdi=500):
-    if ~pdf_available:
+    if not pdf_available:
         print('Optional module pdf2image was not found, this functions is not available. Please install pdf2image')
         return None
     pdf_image_list = pdf2image.convert_from_path(pdf_filename, dpi=pdi)
@@ -1677,7 +1677,7 @@ def create_virtual_sonde_from_wrf(sonde_dict, filelist_wrf_output,
 
     return wrf_sonde_dict
 def create_virtual_sonde_from_wrf_single_point(wrf_nc, point_lat, point_lon):
-    if ~wrf_available:
+    if not wrf_available:
         print('Optional module wrf was not found, this functions is not available. Please install wrf')
         return None
     wrf_lat, wrf_lon = wrf_get_lat_lon(wrf_nc)
@@ -4790,7 +4790,7 @@ def hysplit_download_and_save_gifs():
 def plot_hysplit_traj(arr_, resolution_='i', format_='%.2f', cbar_label='', cmap_ = default_cm,
                       color_='gray',dot_size = 15, map_pad=0.05,
                       min_lat=None,max_lat=None,min_lon=None,max_lon=None, ticks_=5., linewidth_=5):
-    if ~basemap_available:
+    if not basemap_available:
         print('Optional module basemap was not found, this functions is not available. Please install basemap')
         return None
 
@@ -4826,7 +4826,7 @@ def plot_hysplit_traj(arr_, resolution_='i', format_='%.2f', cbar_label='', cmap
 
     plt.show()
 def plot_hysplit_traj_fix(file_list, lat_tuple, lon_tuple, out_path):
-    if ~basemap_available:
+    if not basemap_available:
         print('Optional module basemap was not found, this functions is not available. Please install basemap')
         return None
 
@@ -10510,7 +10510,7 @@ def WRF_emission_file_modify(filename_, variable_name, cell_index_west_east, cel
 def find_wrf_3d_cell_from_latlon_to_south_north_west_east(lat_, lon_, wrf_output_filename,
                                                           wrf_lat_variablename='XLAT', wrf_lon_variablename='XLONG',
                                                           flatten_=False):
-    if ~wrf_available:
+    if not wrf_available:
         print('Optional module wrf was not found, this functions is not available. Please install wrf')
         return None
     netcdf_file_object_wrf = nc.Dataset(wrf_output_filename, 'r')
@@ -14344,7 +14344,7 @@ def plot_wind_over_map(lat_series, lon_series, U_series, V_series, size_=1, reso
                        save_fig=False, figure_filename='', projection_='merc',
                        show_grid = False, grid_step=5, lake_area_thresh=9999, coast_color='blue',
                        arrow_headwidth=3, arrow_headlength=5,arrow_headaxislength=4.5):
-    if ~basemap_available:
+    if not basemap_available:
         print('Optional module basemap was not found, this functions is not available. Please install basemap')
         return None
 
@@ -14457,7 +14457,7 @@ def plot_series_over_map(lat_series, lon_series, series_=None, resolution_='i', 
                          cbar_orient='vertical', alpha_=1, epsg_=None, color_coast='black',
                          parallels_ticks_loc=[True, False, False, False],
                          meridians_ticks_loc=[False, False, False, True],):
-    if ~basemap_available:
+    if not basemap_available:
         print('Optional module basemap was not found, this functions is not available. Please install basemap')
         return None
 
@@ -14592,7 +14592,7 @@ def plot_arr_over_map(arr_, lat_arr, lon_arr, resolution_='i', format_='%.2f', c
                       parallels_ticks_loc=[True, False, False, False],
                       meridians_ticks_loc=[False, False, False, True],
                       ):
-    if ~basemap_available:
+    if not basemap_available:
         print('Optional module basemap was not found, this functions is not available. Please install basemap')
         return None
 
@@ -14744,7 +14744,7 @@ def plot_arr_over_map(arr_, lat_arr, lon_arr, resolution_='i', format_='%.2f', c
 
 def plot_arr_over_map_nc(nc_file, var_name=None, lat_name='lat', lon_name='lon',
                          time_name='time', time_row=None, time_str=None, level_index=None):
-    if ~basemap_available:
+    if not basemap_available:
         print('Optional module basemap was not found, this functions is not available. Please install basemap')
         return None
 
