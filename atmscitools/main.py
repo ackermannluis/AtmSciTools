@@ -90,6 +90,11 @@ try:
     wrf_available = True
 except:
     wrf_available = False
+try:
+    import pdf2image
+    pdf_available = True
+except:
+    pdf_available = False
 
 # </editor-fold>
 
@@ -1199,7 +1204,16 @@ def unicode_symbols():
     """
 
     print(text_)
-
+def pdf_convert_pages_to_images(pdf_filename, pdi=500):
+    if ~pdf_available:
+        print('Optional module pdf2image was not found, this functions is not available. Please install pdf2image')
+        return None
+    pdf_image_list = pdf2image.convert_from_path(pdf_filename, dpi=pdi)
+    root_name_for_images = pdf_filename[:-4]
+    for i_, page_image in enumerate(pdf_image_list):
+        page_number_str = str(i_).zfill(3)
+        page_filename = root_name_for_images + '_' + page_number_str + '.png'
+        page_image.save(page_filename)
 
 # WRF
 def get_WRF_domain_periometer_only(output_filename):
