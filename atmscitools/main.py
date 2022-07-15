@@ -46,7 +46,6 @@ import numpy as np
 import matplotlib
 from scipy.stats import ttest_ind, mode
 import netCDF4 as nc
-from paramiko import SSHClient, AutoAddPolicy
 import requests
 from xlrd import open_workbook
 from xlrd.xldate import xldate_as_datetime
@@ -95,6 +94,16 @@ try:
     pdf_available = True
 except:
     pdf_available = False
+
+try:
+    from paramiko import SSHClient, AutoAddPolicy
+    paramiko_available = True
+except:
+    paramiko_available = False
+
+
+
+
 
 # </editor-fold>
 
@@ -1035,6 +1044,9 @@ def rename_files_to_number_series(file_list, path_output=path_output, zfill_ = 3
         os.rename(filename_, path_output + str(i_).zfill(zfill_) + '.png')
 def SCP_get_file(remote_filename_or_path, local_destination_path,
                  user_name, host_name, password_, recursive=False, port_=22):
+    if not paramiko_available:
+        print('Optional module paramiko was not found, this functions is not available. Please install paramiko')
+        return None
     ssh = SSHClient()
     ssh.load_system_host_keys()
     ssh.set_missing_host_key_policy(AutoAddPolicy())
@@ -1052,6 +1064,9 @@ def SCP_get_file(remote_filename_or_path, local_destination_path,
     scp.close()
 def SCP_put_file(local_filename_or_path, remote_destination_path,
                  user_name, host_name, password_, port_=22):
+    if not paramiko_available:
+        print('Optional module paramiko was not found, this functions is not available. Please install paramiko')
+        return None
     ssh = SSHClient()
     ssh.load_system_host_keys()
     ssh.set_missing_host_key_policy(AutoAddPolicy())
@@ -1069,6 +1084,9 @@ def SCP_put_file(local_filename_or_path, remote_destination_path,
     scp.close()
 def list_files_remote(remote_path,
                       user_name, host_name, password_, recursive=False):
+    if not paramiko_available:
+        print('Optional module paramiko was not found, this functions is not available. Please install paramiko')
+        return None
     ssh = SSHClient()
     ssh.load_system_host_keys()
     ssh.set_missing_host_key_policy(AutoAddPolicy())
