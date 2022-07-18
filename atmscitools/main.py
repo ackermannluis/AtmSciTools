@@ -13281,7 +13281,7 @@ def p_plot_arr(array_v, array_x, array_y,
                colorbar_tick_labels_list=None, show_x_ticks=True, show_y_ticks=True,extend_='neither',
                invert_y=False, invert_x=False, levels=None, text_box_str=None,text_box_loc=None,
                font_size_axes_labels=14, font_size_title=16, font_size_legend=12, font_size_ticks=10,
-               add_coastlines=False, coastline_color='black'):
+               add_coastlines=False, coastline_color='black', zorder_=None):
     """
     plots an array in vector form (not imshow)
     :param array_v: 2d array with values to be shown as colors
@@ -13327,6 +13327,7 @@ def p_plot_arr(array_v, array_x, array_y,
     :param extend_: {'neither', 'both', 'min', 'max'}
     :param add_coastlines: if true adds coastlines (creates a map).
     :param coastline_color: color of the coastline.
+    :param zorder_: integer that defines the order in which objects appear, larger numbers are on top of smaller
     :return:
         fig: figure objects
         ax: axes objects
