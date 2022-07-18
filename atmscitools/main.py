@@ -13382,11 +13382,13 @@ def p_plot_arr(array_v, array_x, array_y,
 
 
     if contour_:
-        surf_ = ax.contour(array_x, array_y, array_v, levels=levels, cmap=cmap_, vmin=vmin_, vmax=vmax_, extend=extend_)
+        surf_ = ax.contour(array_x, array_y, array_v, levels=levels, cmap=cmap_, vmin=vmin_, vmax=vmax_,
+                           extend=extend_, zorder=zorder_)
     elif contourF_:
-        surf_ = ax.contourf(array_x, array_y, array_v, levels=levels, cmap=cmap_, vmin=vmin_, vmax=vmax_, extend=extend_)
+        surf_ = ax.contourf(array_x, array_y, array_v, levels=levels, cmap=cmap_, vmin=vmin_, vmax=vmax_,
+                            extend=extend_, zorder=zorder_)
     else:
-        surf_ = ax.pcolormesh(array_x, array_y, array_v, cmap=cmap_, vmin=vmin_, vmax=vmax_)
+        surf_ = ax.pcolormesh(array_x, array_y, array_v, cmap=cmap_, vmin=vmin_, vmax=vmax_, zorder=zorder_)
 
     if show_cbar:
         if cbar_ax is None:
