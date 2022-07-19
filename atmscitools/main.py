@@ -490,6 +490,63 @@ def coincidence(arr_1,arr_2):
     arr_2_checked = arr_2 * check_
 
     return arr_1_checked[~np.isnan(arr_1_checked)], arr_2_checked[~np.isnan(arr_2_checked)]
+def regrid_1D_to_2D(array_1D_values, array_1D_x, array_1D_y, array_2D_x, array_2D_y,
+                    show_progress=True, nodata_value=np.nan):
+    """
+    Regrids a 1D array with 1D coordinates (x and y) into a 2D array with the x and y grid in the same scale.
+    If multiple array_1D_values are found to fit inside any 2D grid box, the mean of these values will be inserted.
+    If no array_1D_values are found to fit inside any 2D grid box, nodata_value will be inserted.
+    :param array_1D_values: 1D numpy array with the values to be inserted into the output array, where they fit
+    :param array_1D_x: 1D numpy array with the x coordinate values. Must be the same shape as array_1D_values
+    :param array_1D_y: 1D numpy array with the y coordinate values. Must be the same shape as array_1D_values
+    :param array_2D_x: 2D numpy array with the x coordinate values.
+    :param array_2D_y: 2D numpy array with the y coordinate values. Must be the same shape as array_2D_x
+    :param show_progress: Bool. If true a progress bar will be shown during processing.
+    :param nodata_value: float or integer to be placed in the output array when no values where found inside 2D grid box
+    :return: 2D array of array_1D_values
+    """
+    # check that the shapes are correct
+    if array_2D_x.shape != array_2D_y.shape:
+        raise ValueError('2D shapes are not equal')
+    if array_1D_values.shape == array_1D_x.shape == array_1D_y.shape:
+        pass
+    else:
+        raise ValueError('1D shapes are not equal')
+    # define output shape
+    rows_, cols_ = array_2D_x.shape
+
+    # create output array
+    output_array = np.ones((rows_, cols_), dtype=float) * nodata_value
+
+    # create 2D vector of all 1D arrays
+    vector_2D = np.column_stack((array_1D_y, array_1D_x, array_1D_values))
+    vector_2D_y_sorted = array_2D_sort_ascending_by_column(vector_2D, 0)
+
+    for r_2D in range(rows_-1):
+        if show_progress: p_progress_bar(r_2D,rows_-1)
+        for c_2D in range(cols_-1):
+            y_start = array_2D_y[r_2D, c_2D]
+            y_stop = array_2D_y[r_2D+1, c_2D]
+            x_start = array_2D_x[r_2D, c_2D]
+            x_stop = array_2D_x[r_2D, c_2D+1]
+
+            r_1D_1 = time_to_row_sec(vector_2D_y_sorted[:,0], y_start)
+            r_1D_2 = time_to_row_sec(vector_2D_y_sorted[:,0], y_stop)
+
+            if r_1D_1 == r_1D_2:
+                continue
+
+            vector_2D_x_sorted_sub = array_2D_sort_ascending_by_column(vector_2D[r_1D_1:r_1D_2,1:], 0)
+
+            c_1D_1 = time_to_row_sec(vector_2D_x_sorted_sub[:,0], x_start)
+            c_1D_2 = time_to_row_sec(vector_2D_x_sorted_sub[:,0], x_stop)
+
+            if c_1D_1 == c_1D_2:
+                continue
+
+            output_array[r_2D, c_2D] = np.nanmean(vector_2D_x_sorted_sub[c_1D_1:c_1D_2,1])
+
+    return output_array
 def array_2d_fill_gaps_by_interpolation_linear(array_):
 
     rows_ = array_.shape[0]
