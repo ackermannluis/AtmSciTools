@@ -16259,6 +16259,9 @@ def SR_Ze_func(Ze_,a,b):
 def Ze_SR_func(SR_,a,b):
     Ze_ = a * (SR_**b)
     return Ze_
+def sigmoid_mod(x_, slope_, inflex_, max_y, min_y):
+    sigmoid_ = 1 / (1 + (e_constant ** (-slope_ * (x_ - inflex_))))
+    return min_y + sigmoid_ * (max_y - min_y)
 
 p = p_
 
