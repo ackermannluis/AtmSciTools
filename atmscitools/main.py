@@ -300,6 +300,13 @@ Rstar_a = 8.31432       # Universal gas constant for air (N m /(mol K))
 
 
 # Misc
+def error_except():
+    correct_format = """
+    except BaseException as error_msg:
+    \tline_number = sys.exc_info()[-1].tb_lineno
+    \tprint('error in line {0}, error message:\\n{1}'.format(line_number, error_msg))
+    """
+    print(correct_format)
 def split_str_by_n_char(string_, n):
     return [string_[i:i + n] for i in range(0, len(string_), n)]
 def get_last_line(filename_, line_return_index=-1):
