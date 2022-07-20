@@ -10838,6 +10838,7 @@ def stitch_array_from_list_of_chunks_with_overlap(chunk_list, overlap_size):
     return np.row_stack(cropped_arrays_list)
 def show_stats(array_, max_number_of_uniques_to_show=20):
     type_ = array_.dtype
+    shape_ = array_.shape
     mean_ = np.nanmean(array_)
     median_ = np.nanmedian(array_)
     std_ = np.nanstd(array_)
@@ -10855,6 +10856,7 @@ def show_stats(array_, max_number_of_uniques_to_show=20):
 
     print('-' * 20)
     print('type:', type_)
+    print('shape:', shape_)
     print('mean:', mean_)
     print('median:', median_)
     print('std:', std_)
@@ -10867,8 +10869,8 @@ def show_stats(array_, max_number_of_uniques_to_show=20):
     print('contains_nans:', contains_nans_)
 
     print('Number of unique values:', len(unique_values))
-    print('-' * 10)
     if len(unique_values) <= max_number_of_uniques_to_show:
+        print('-' * 10)
         for unique_val in unique_values:
             print('\t', unique_val, '\t', np.sum(array_ == unique_val))
     print('-' * 20)
