@@ -10806,8 +10806,72 @@ def create_thick_cross_section_mean_std_series(array_values, array_x, array_y,
         std_list.append(np.nanstd(i_))
 
     return line_x_arr, line_y_arr, np.array(mean_list), np.array(std_list)
+def divide_array_into_chunks_with_overlap_multiprocessing(array_, number_of_chunks, overlap_size):
+    # chunkify array with overlap
+    rows_ = array_.shape[0]
+    chunk_size = int(rows_ / number_of_chunks)
+
+    array_list = []
+    for chunk_number in range(number_of_chunks):
+        if chunk_number == 0:
+            array_list.append(array_[:chunk_size + overlap_size,:])
+        elif chunk_number == number_of_chunks-1:
+            array_list.append(array_[(chunk_size * chunk_number)-overlap_size:, :])
+        else:
+            array_list.append(array_[(chunk_size * chunk_number)-overlap_size:(chunk_size * (chunk_number+1))
+                                                                              + overlap_size, :])
+    return array_list
+def stitch_array_from_list_of_chunks_with_overlap(chunk_list, overlap_size):
+    number_of_chunks = len(chunk_list)
+
+    cropped_arrays_list = []
+    for chunk_number in range(number_of_chunks):
+        array_ = chunk_list[chunk_number]
+        if chunk_number == 0:
+            cropped_arrays_list.append(array_[:-overlap_size,:])
+        elif chunk_number == number_of_chunks-1:
+            cropped_arrays_list.append(array_[overlap_size:, :])
+        else:
+            cropped_arrays_list.append(array_[overlap_size:-overlap_size, :])
 
 
+    return np.row_stack(cropped_arrays_list)
+def show_stats(array_, max_number_of_uniques_to_show=20):
+    type_ = array_.dtype
+    mean_ = np.nanmean(array_)
+    median_ = np.nanmedian(array_)
+    std_ = np.nanstd(array_)
+    max_ = np.nanmax(array_)
+    min_ = np.nanmin(array_)
+    perc_05_ = np.nanpercentile(array_, 5)
+    perc_25_ = np.nanpercentile(array_, 25)
+    perc_75_ = np.nanpercentile(array_, 75)
+    perc_95_ = np.nanpercentile(array_, 95)
+    contains_nans_ = False
+    if np.sum(np.isnan(array_)) > 0:
+        contains_nans_ = True
+
+    unique_values = list(sorted(set(array_[~np.isnan(array_)])))
+
+    print('-' * 20)
+    print('type:', type_)
+    print('mean:', mean_)
+    print('median:', median_)
+    print('std:', std_)
+    print('max:', max_)
+    print('min:', min_)
+    print('perc_05:', perc_05_)
+    print('perc_25:', perc_25_)
+    print('perc_75:', perc_75_)
+    print('perc_95:', perc_95_)
+    print('contains_nans:', contains_nans_)
+
+    print('Number of unique values:', len(unique_values))
+    print('-' * 10)
+    if len(unique_values) <= max_number_of_uniques_to_show:
+        for unique_val in unique_values:
+            print('\t', unique_val, '\t', np.sum(array_ == unique_val))
+    print('-' * 20)
 
 
 # ozonesonde and radiosonde related
