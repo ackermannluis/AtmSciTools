@@ -13300,6 +13300,8 @@ def p_plot(X_series, Y_,
                 if vmax_ is None: vmax_ = np.nanmax(c_)
                 im = ax.scatter(X_,Y_, s = S_, lw = marker_lw,  c = c_, cmap = cmap_,
                                 marker=marker_, zorder=zorder_, vmin=vmin_, vmax=vmax_, alpha=alpha_)
+
+
                 if y_err_arr is not None:
                     ax.errorbar(X_, Y_, yerr=y_err_arr, color=y_err_color)
                 im.set_rasterized(rasterized_)
@@ -13491,22 +13493,6 @@ def p_plot_arr(array_v, array_x, array_y,
     else:
         array_y_reshaped = array_y
     array_y = array_y_reshaped
-    # if len(array_x.shape) == 1:
-    #     array_x_reshaped = np.zeros((array_v.shape[0], array_v.shape[1]), dtype=float)
-    #     for c_ in range(array_v.shape[1]):
-    #         array_x_reshaped[:, c_] = array_x
-    # else:
-    #     array_x_reshaped = array_x
-    # array_x = array_x_reshaped
-    #
-    # if len(array_y.shape) == 1:
-    #     array_y_reshaped = np.zeros((array_v.shape[0], array_v.shape[1]), dtype=float)
-    #     for r_ in range(array_v.shape[0]):
-    #         array_y_reshaped[r_, :] = array_y
-    # else:
-    #     array_y_reshaped = array_y
-    #
-    # array_y = array_y_reshaped
 
     if time_format_ is not None:
         array_x = convert_any_time_type_to_days(array_x_reshaped)
@@ -13553,15 +13539,15 @@ def p_plot_arr(array_v, array_x, array_y,
         ax.xaxis.set_major_formatter(plot_format_mayor)
         ax.format_coord = lambda x, y: 'x=%s, y=%g, v=%g' % (plot_format_mayor(x),
                                                              y,
-                                                             array_v[int(np.argmin(np.abs(array_x[:, 0] - x))), int(
-                                                                 np.argmin(np.abs(array_y[0, :] - y)))])
+                                                             array_v[int(np.nanargmin(np.abs(array_x[:, 0] - x))), int(
+                                                                 np.nanargmin(np.abs(array_y[0, :] - y)))])
     else:
         ax.ticklabel_format(useOffset=False)
         ax.format_coord = lambda x, y: 'x=%1.2f, y=%g, v=%g' % (x,
                                                                 y,
                                                                 array_v[
-                                                                    int(np.argmin(np.abs(array_x[:, 0] - x))), int(
-                                                                        np.argmin(np.abs(array_y[0, :] - y)))])
+                                                                    int(np.nanargmin(np.abs(array_x[:, 0] - x))), int(
+                                                                        np.nanargmin(np.abs(array_y[0, :] - y)))])
 
     if not show_x_ticks:
         plt.setp(ax.get_xticklabels(), visible=False)
@@ -16260,6 +16246,10 @@ def Ze_SR_func(SR_,a,b):
     Ze_ = a * (SR_**b)
     return Ze_
 def sigmoid_mod(x_, slope_, inflex_, max_y, min_y):
+    sigmoid_ = 1 / (1 + (e_constant ** (-slope_ * (x_ - inflex_))))
+    return min_y + sigmoid_ * (max_y - min_y)
+def sigmoid_mod_2(x_, slope_, inflex_, max_y):
+    min_y = 0
     sigmoid_ = 1 / (1 + (e_constant ** (-slope_ * (x_ - inflex_))))
     return min_y + sigmoid_ * (max_y - min_y)
 
