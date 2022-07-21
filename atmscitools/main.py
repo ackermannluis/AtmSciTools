@@ -380,7 +380,10 @@ def bell_alarm(time_=1.):
         import winsound
         winsound.Beep(440, int(time_*1000))
     else:
-        os.system('play -nq -t alsa synth {} sine {}'.format(time_, 440))
+        try:
+            os.system('play -nq -t alsa synth {} sine {}'.format(time_, 440))
+        except:
+            print('command not found, may need to install sox package')
 def log_msg(text_, process_id):
     log_file = open(path_log + process_id + '.log', 'a')
     log_file.write(time_seconds_to_str(time.time(), time_format_mod) + '\t' + text_ + '\n')
@@ -13539,15 +13542,14 @@ def p_plot_arr(array_v, array_x, array_y,
         ax.xaxis.set_major_formatter(plot_format_mayor)
         ax.format_coord = lambda x, y: 'x=%s, y=%g, v=%g' % (plot_format_mayor(x),
                                                              y,
-                                                             array_v[int(np.nanargmin(np.abs(array_x[:, 0] - x))), int(
-                                                                 np.nanargmin(np.abs(array_y[0, :] - y)))])
+                                                             array_v[int(np.nanargmin(np.abs(array_y[:, 0] - y))),
+                                                                     int(np.nanargmin(np.abs(array_x[0, :] - x)))])
     else:
         ax.ticklabel_format(useOffset=False)
-        ax.format_coord = lambda x, y: 'x=%1.2f, y=%g, v=%g' % (x,
-                                                                y,
-                                                                array_v[
-                                                                    int(np.nanargmin(np.abs(array_x[:, 0] - x))), int(
-                                                                        np.nanargmin(np.abs(array_y[0, :] - y)))])
+        ax.format_coord = lambda x, y: 'x=%g, y=%g, v=%g' % (x,
+                                                             y,
+                                                             array_v[int(np.nanargmin(np.abs(array_y[:, 0] - y))),
+                                                                     int(np.nanargmin(np.abs(array_x[0, :] - x)))])
 
     if not show_x_ticks:
         plt.setp(ax.get_xticklabels(), visible=False)
