@@ -873,13 +873,13 @@ def grid_(x, y, z, resX=100, resY=100):
     X, Y = np.meshgrid(xi, yi)
     return X, Y, Z
 def find_max_index_2d_array(array_):
-    return np.unravel_index(np.argmax(array_, axis=None), array_.shape)
+    return np.unravel_index(np.nanargmax(array_, axis=None), array_.shape)
 def find_min_index_2d_array(array_):
-    return np.unravel_index(np.argmin(array_, axis=None), array_.shape)
+    return np.unravel_index(np.nanargmin(array_, axis=None), array_.shape)
 def find_max_index_1d_array(array_):
-    return np.argmax(array_, axis=None)
+    return np.nanargmax(array_, axis=None)
 def find_min_index_1d_array(array_):
-    return np.argmin(array_, axis=None)
+    return np.nanargmin(array_, axis=None)
 def time_series_interpolate_discrete(Index_, Values_, index_step, first_index,
                                      position_=0., last_index=None):
     """
