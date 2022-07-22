@@ -13150,7 +13150,7 @@ def p_plot(X_series, Y_,
            font_size_axes_labels=14, font_size_title=16, font_size_legend=12, font_size_ticks=10, cbar_format='%.2f',
            t_line_text_color='black', vmin_=None, vmax_=None, y_ticks_on_right_side=False, cbar_orient='vertical',
            colorbar_tick_labels_list=None, add_coastlines=False, coastline_color='black',
-           y_err_arr=None, y_err_color='k'):
+           y_err_arr=None, y_err_color='k', fit_function_p0=None):
     """
     creates plot
     :param X_series: 1D array with values of x axis
@@ -13218,6 +13218,7 @@ def p_plot(X_series, Y_,
     :param coastline_color: color of the coastline, string
     :param y_err_arr: 1D array with error values for errorbars. If not none, error bars will be added
     :param y_err_color: color to be used for the error bars, default is black
+    :param fit_function_p0: list with initial guess of fitting variables to be pased to curve_fit
     :return: matplotlib figure object, matplotlib axis object, R2 in case a fitting is done otherwise none
     """
     change_font_size_figures(font_size_axes_labels, font_size_title, font_size_legend, font_size_ticks)
@@ -13343,7 +13344,8 @@ def p_plot(X_series, Y_,
         ax.grid(True)
     if t_line:
         Rsqr = plot_trend_line(ax, X_, Y_, c=t_line_color, alpha=1, cus_loc = cus_loc, text_color=t_line_text_color,
-                        extra_text=extra_text, t_line_1_1= t_line_1_1, fit_function=fit_function)
+                               extra_text=extra_text, t_line_1_1= t_line_1_1,
+                               fit_function=fit_function, fit_function_p0=fit_function_p0)
     else:
         Rsqr = None
 
@@ -15292,7 +15294,8 @@ def plot_values_x_as_time(header_,values_,x_array,y_list,
     if legend_: ax.legend(loc=(.95,.0))
     plt.show()
 def plot_trend_line(axes_, xd, yd, c='r', alpha=1, cus_loc = None, text_color='black', return_params=False,
-                    extra_text='', t_line_1_1=True, fit_function=None, fontsize_=12, add_text=True):
+                    extra_text='', t_line_1_1=True, fit_function=None, fontsize_=12, add_text=True,
+                    fit_function_p0=None):
     """Make a line of best fit"""
     #create clean series
     x_, y_ = coincidence(xd,yd)
@@ -15300,7 +15303,7 @@ def plot_trend_line(axes_, xd, yd, c='r', alpha=1, cus_loc = None, text_color='b
 
 
     if fit_function is not None:
-        params = curve_fit(fit_function, x_, y_)
+        params = curve_fit(fit_function, x_, y_, p0=fit_function_p0)
         print('fitted parameters')
         print(params[0])
 
