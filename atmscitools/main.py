@@ -300,6 +300,10 @@ Rstar_a = 8.31432       # Universal gas constant for air (N m /(mol K))
 
 
 # Misc
+def scientific_notation_stop_numpy():
+    np.set_printoptions(suppress=True)
+def scientific_notation_start_numpy():
+    np.set_printoptions(suppress=False)
 def error_except():
     correct_format = """
     except BaseException as error_msg:
