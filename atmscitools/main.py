@@ -193,11 +193,11 @@ if platform.platform()[0] == "W":
     path_data = 'D:/Data/'
     path_log = '/g/data/k10/la6753/job_logs/'
 else:
-    path_input = '/home/luis/_input/'
-    path_output = '/home/luis/_output/'
-    path_temp = "/home/luis/_temp/"
-    path_data = '/home/luis/data/'
-    path_log = '/home/luis/data/'
+    path_input = '/home/lackerma/_input/'
+    path_output = '/home/lackerma/_output/'
+    path_temp = "/home/lackerma/_temp/"
+    path_data = '/home/lackerma/data/'
+    path_log = '/home/lackerma/data/'
 
 
 
@@ -494,7 +494,7 @@ def list_files_recursive(path_, filter_str=None):
                 if filter_str in file:
                     filename_ = os.path.join(r, file)
                     file_list.append(filename_.replace('\\', '/'))
-    return file_list
+    return sorted(file_list)
 def coincidence(arr_1,arr_2):
     # only coincidences
     check_ = arr_1 * arr_2
