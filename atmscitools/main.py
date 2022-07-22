@@ -13231,6 +13231,8 @@ def p_plot(X_series, Y_,
 
     x_is_time_cofirmed = True
     if x_as_time==True and density_==False and invert_x==False and log_x==False:
+        if time_format_ is None:
+            time_format_ = time_format_mod
         X_ = convert_any_time_type_to_days(X_series)
         if X_ is None:
             X_ = X_series
@@ -13301,9 +13303,16 @@ def p_plot(X_series, Y_,
             else:
                 if vmin_ is None: vmin_ = np.nanmin(c_)
                 if vmax_ is None: vmax_ = np.nanmax(c_)
-                im = ax.scatter(X_,Y_, s = S_, lw = marker_lw,  c = c_, cmap = cmap_,
+                im = ax.scatter(X_, Y_, s=S_, lw=marker_lw,  c=c_, cmap=cmap_,
                                 marker=marker_, zorder=zorder_, vmin=vmin_, vmax=vmax_, alpha=alpha_)
 
+                if x_is_time_cofirmed:
+                    plot_format_mayor = mdates.DateFormatter(time_format_)
+                    ax.format_coord = lambda x, y: 'x=%s, y=%g, v=%g' % (plot_format_mayor(x), y,
+                                                                         c_[np.nanargmin((Y_ - y)**2 + (X_ - x)**2)])
+                else:
+                    ax.format_coord = lambda x, y: 'x=%g, y=%g, v=%g' % (x, y,
+                                                                         c_[np.nanargmin((Y_ - y)**2 + (X_ - x)**2)])
 
                 if y_err_arr is not None:
                     ax.errorbar(X_, Y_, yerr=y_err_arr, color=y_err_color)
