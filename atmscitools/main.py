@@ -12354,6 +12354,10 @@ def row_sum_discrete_2D(arr_, sum_size):
         result_[r_,:] = np.nansum(arr_[int(r_* sum_size) : int(r_* sum_size) + sum_size], axis=0)
 
     return result_
+def column_sum_discrete_2D(arr_, sum_size):
+    result_ = row_sum_discrete_2D(arr_.T, sum_size).T
+
+    return result_
 def average_all_data_files_monthly(filename_, number_of_seconds, min_data_number = None,
                                    WD_index = None, WS_index = None, cumulative_parameter_list=None):
     header_, values_ = load_time_columns(filename_)
@@ -16270,6 +16274,26 @@ def sigmoid_mod_2(x_, slope_, inflex_, max_y):
     min_y = 0
     sigmoid_ = 1 / (1 + (e_constant ** (-slope_ * (x_ - inflex_))))
     return min_y + sigmoid_ * (max_y - min_y)
+def power_func(x_, a, b):
+    return a * x_ ** b
+def reciprocal_power_asymp(x_, a, b, c):
+    y_ = c - 1 / ((1 + a * x_) ** b)
+    return y_
+def hill_model(x_, a, b, c):
+    return (a * x_ ** c) / (b ** c + x_ ** c)
+def log_func(x_, a, b, c):
+    return a + b * np.log(1 + c ** x_)
+def gaussian_distribution(x_, mean_, std_):
+    f_x = (1 / (std_ * (2 * np.pi) ** (1 / 2))) * e_constant ** (-(1 / 2) * ((x_ - mean_) / std_) ** 2)
+    return f_x
+def gaussian_distribution_mod(x_, mean_, std_, max_y):
+    f_x = (max_y / (std_ * (2 * np.pi) ** (1 / 2))) * e_constant ** (-(1 / 2) * ((x_ - mean_) / std_) ** 2)
+    return f_x
+def calculate_R_2(y_real, y_model):
+    y_real, y_model = coincidence(y_real, y_model)
+    y_real_mean = np.mean(y_real)
+    Rsqr = 1 - (np.sum((y_real - y_model) ** 2) / np.sum((y_real - y_real_mean) ** 2))
+    return Rsqr
 
 p = p_
 
