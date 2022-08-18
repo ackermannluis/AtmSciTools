@@ -9475,6 +9475,165 @@ def nc_show_variable_info_extended(nc_file, show_units=True):
 
     if close_nc: nc_file.close()
 
+def load_spatiotemporal_netcdf_to_dictionary(filename_,
+                                             time_dimension_name='time',
+                                             level_dimension_name='level',
+                                             lat_dimension_name='lat',
+                                             lon_dimension_name='lon',
+                                             var_list=None,
+                                             time_tuple_start_stop_index=(0, -1),
+                                             level_tuple_start_stop_index=(0, -1),
+                                             lat_tuple_start_stop_index=(0, -1),
+                                             lon_tuple_start_stop_index=(0, -1),
+                                             print_debug=True
+                                             ):
+    """
+    creates a dictionary from a netcdf file the netcdf must have only four dimensions for the data variables, where
+      time is the first dimension, height levels is the second, lat is the third, and lon is the last
+      the four dimensional variables must be non dependent on each other (1D).
+    :param filename_: filename with path of a netCDF4 file
+    :param time_dimension_name: name of time dimension
+    :param level_dimension_name: name of height/level dimension
+    :param lat_dimension_name: name of latitude dimension
+    :param lon_dimension_name: name of longitude dimension
+    :param var_list: list of variables to be loaded, if none, all variables will be loaded
+    :param time_tuple_start_stop_index: tuple with the indexes of start and end time to be loaded
+    :param level_tuple_start_stop_index: tuple with the indexes of start and end levels to be loaded
+    :param lat_tuple_start_stop_index: tuple with the indexes of start and end lat to be loaded
+    :param lon_tuple_start_stop_index: tuple with the indexes of start and end lon to be loaded
+    :return: dict_: have a dimensions key, a variables key, and a attributes key.
+    Each var have a data key equal to a numpy array (can be masked) and a attribute key
+    Each var have a dimensions key equal to a tuple, in the same order as the array's dimensions
+    all attributes are tuples with name and description text
+    """
+    # create output dict
+    out_dict = {}
+
+    # open file
+    file_obj = nc.Dataset(filename_, 'r')  # ,format='NETCDF4_CLASSIC')
+    if print_debug: print('output file started')
+
+    # get file's attr
+    file_att_list_tuple = []
+    for attr_ in file_obj.ncattrs():
+        file_att_list_tuple.append((attr_, file_obj.getncattr(attr_)))
+    out_dict['attributes'] = file_att_list_tuple
+
+    # get dimensions
+    out_dict['dimensions'] = sorted(file_obj.dimensions)
+
+    # get variables
+    if var_list is None:
+        var_list = sorted(file_obj.variables)
+    out_dict['variables'] = {}
+
+    # check that time, lat, and lon are in dimensions and variables
+    if time_dimension_name not in out_dict['dimensions']:
+        raise ValueError('{0} is not in the dimension list of the nc file'.format(time_dimension_name))
+    if level_dimension_name not in out_dict['dimensions']:
+        raise ValueError('{0} is not in the dimension list of the nc file'.format(level_dimension_name))
+    if lat_dimension_name not in out_dict['dimensions']:
+        raise ValueError('{0} is not in the dimension list of the nc file'.format(lat_dimension_name))
+    if lon_dimension_name not in out_dict['dimensions']:
+        raise ValueError('{0} is not in the dimension list of the nc file'.format(lon_dimension_name))
+    if time_dimension_name not in var_list:
+        raise ValueError('{0} is not in the variable list of the nc file'.format(time_dimension_name))
+    if level_dimension_name not in var_list:
+        raise ValueError('{0} is not in the variable list of the nc file'.format(level_dimension_name))
+    if lat_dimension_name not in var_list:
+        raise ValueError('{0} is not in the variable list of the nc file'.format(lat_dimension_name))
+    if lon_dimension_name not in var_list:
+        raise ValueError('{0} is not in the variable list of the nc file'.format(lon_dimension_name))
+
+
+    # get time, lat, and lon arrays
+    nc_time = file_obj.variables[time_dimension_name][:].filled(np.nan)
+    nc_lev = file_obj.variables[level_dimension_name][:].filled(np.nan)
+    nc_lat = file_obj.variables[lat_dimension_name][:].filled(np.nan)
+    nc_lon = file_obj.variables[lon_dimension_name][:].filled(np.nan)
+
+    t_1, t_2 = time_tuple_start_stop_index
+    l_1, l_2 = level_tuple_start_stop_index
+    lat_1, lat_2 = lat_tuple_start_stop_index
+    lon_1, lon_2 = lon_tuple_start_stop_index
+
+    if t_2 == -1:       t_2      = nc_time.shape[0]
+    if l_2 == -1:       l_2      = nc_lev.shape[0]
+    if lat_2 == -1:     lat_2    = nc_lat.shape[0]
+    if lon_2 == -1:     lon_2    = nc_lon.shape[0]
+
+    # create variables
+    for var_ in var_list:
+        if var_ == time_dimension_name:
+            out_dict['variables'][var_] = {}
+
+            out_dict['variables'][var_]['data'] = file_obj.variables[var_][t_1:t_2]
+            out_dict['variables'][var_]['attributes'] = file_obj.variables[var_].ncattrs()
+
+            var_att_list_tuple = []
+            for attr_ in file_obj.variables[var_].ncattrs():
+                var_att_list_tuple.append((attr_, file_obj.variables[var_].getncattr(attr_)))
+            out_dict['variables'][var_]['attributes'] = var_att_list_tuple
+
+            out_dict['variables'][var_]['dimensions'] = file_obj.variables[var_].dimensions
+        elif var_ == level_dimension_name:
+            out_dict['variables'][var_] = {}
+
+            out_dict['variables'][var_]['data'] = file_obj.variables[var_][l_1:l_2]
+            out_dict['variables'][var_]['attributes'] = file_obj.variables[var_].ncattrs()
+
+            var_att_list_tuple = []
+            for attr_ in file_obj.variables[var_].ncattrs():
+                var_att_list_tuple.append((attr_, file_obj.variables[var_].getncattr(attr_)))
+            out_dict['variables'][var_]['attributes'] = var_att_list_tuple
+
+            out_dict['variables'][var_]['dimensions'] = file_obj.variables[var_].dimensions
+        elif var_ == lat_dimension_name:
+            out_dict['variables'][var_] = {}
+
+            out_dict['variables'][var_]['data'] = file_obj.variables[var_][lat_1:lat_2]
+            out_dict['variables'][var_]['attributes'] = file_obj.variables[var_].ncattrs()
+
+            var_att_list_tuple = []
+            for attr_ in file_obj.variables[var_].ncattrs():
+                var_att_list_tuple.append((attr_, file_obj.variables[var_].getncattr(attr_)))
+            out_dict['variables'][var_]['attributes'] = var_att_list_tuple
+
+            out_dict['variables'][var_]['dimensions'] = file_obj.variables[var_].dimensions
+        elif var_ == lon_dimension_name:
+            out_dict['variables'][var_] = {}
+
+            out_dict['variables'][var_]['data'] = file_obj.variables[var_][lon_1:lon_2]
+            out_dict['variables'][var_]['attributes'] = file_obj.variables[var_].ncattrs()
+
+            var_att_list_tuple = []
+            for attr_ in file_obj.variables[var_].ncattrs():
+                var_att_list_tuple.append((attr_, file_obj.variables[var_].getncattr(attr_)))
+            out_dict['variables'][var_]['attributes'] = var_att_list_tuple
+
+            out_dict['variables'][var_]['dimensions'] = file_obj.variables[var_].dimensions
+        else:
+            out_dict['variables'][var_] = {}
+
+            out_dict['variables'][var_]['data'] = file_obj.variables[var_][t_1:t_2, l_1:l_2,
+                                                  lat_1:lat_2, lon_1:lon_2]
+            out_dict['variables'][var_]['attributes'] = file_obj.variables[var_].ncattrs()
+
+            var_att_list_tuple = []
+            for attr_ in file_obj.variables[var_].ncattrs():
+                var_att_list_tuple.append((attr_, file_obj.variables[var_].getncattr(attr_)))
+            out_dict['variables'][var_]['attributes'] = var_att_list_tuple
+
+            out_dict['variables'][var_]['dimensions'] = file_obj.variables[var_].dimensions
+
+        if print_debug: print('read variable', var_)
+
+    file_obj.close()
+
+    if print_debug: print('Done!')
+
+    return out_dict
+
 def netCDF_crop_space_domain(input_filename, min_lat, max_lat, min_lon, max_lon,
                              output_filename=None, vars_to_keep=None,
                              lat_dimension_name='lat', lon_dimension_name='lon', print_debug=True):
@@ -9590,8 +9749,11 @@ def netCDF_crop_timewise(input_filename, time_stamp_start_str_YYYYmmDDHHMM, time
         r_1 = time_to_row_str(time_array, time_stamp_start_str_YYYYmmDDHHMM)
         r_2 = time_to_row_str(time_array, time_stamp_stop_str_YYYYmmDDHHMM)
 
-        dict_ = load_netcdf_to_dictionary(input_filename, var_list=vars_to_keep,
-                                          time_tuple_start_stop_row=(r_1,r_2), time_dimension_name=time_dimension_name)
+        dict_ = load_spatiotemporal_netcdf_to_dictionary(
+            input_filename,
+            var_list=vars_to_keep,
+            time_tuple_start_stop_index=(r_1,r_2),
+            time_dimension_name=time_dimension_name)
 
         if output_filename is None:
             output_filename = input_filename[:-3] + '_trimmed_' + str(r_1) + '_' + str(r_2) + '.nc'
