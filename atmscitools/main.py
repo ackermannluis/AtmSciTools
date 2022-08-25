@@ -13845,7 +13845,7 @@ def remove_ax(ax):
                 ax_.remove()
         except:
             ax.remove()
-def save_fig(fig, filename_, transparent=False, bbox_inches='tight', dpi=500):
+def save_fig(fig, filename_, transparent=False, bbox_inches=None, dpi=200):
     fig.savefig(filename_, transparent=transparent, bbox_inches=bbox_inches, dpi=dpi)
 def fig_adjust(fig, left=.08, right=.96, bottom=.1, top=.97, hspace=.01, wspace=.01):
     fig.subplots_adjust(left=left, right=right, bottom=bottom, top=top, hspace=hspace, wspace=wspace)
