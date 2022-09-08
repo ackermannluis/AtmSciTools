@@ -16457,5 +16457,5 @@ def calculate_R_2(y_real, y_model):
 
 p = p_
 
-p_plot_box = plot_box_from_values()
+p_plot_box = plot_box_from_values
 
