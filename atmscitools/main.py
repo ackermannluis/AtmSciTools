@@ -9972,7 +9972,7 @@ def save_dictionary_to_netcdf(dict_, output_filename, print_debug=True ):
         file_obj.variables[var_][:] = dict_['variables'][var_]['data']
 
         for var_attr in dict_['variables'][var_]['attributes']:
-            if isinstance(var_attr, str):
+            if isinstance(var_attr[0], str) and isinstance(var_attr[1], str):
                 if var_attr[0] in list_of_attributes_to_delete:
                     pass
                 else:
@@ -16457,5 +16457,5 @@ def calculate_R_2(y_real, y_model):
 
 p = p_
 
-
+p_plot_box = plot_box_from_values()
 
