@@ -431,7 +431,7 @@ def p_(header_):
     print('-' * 20)
     print('Parameters: ')
     parameter_list = ''
-    fill_len = len(str(len(header_)))
+    fill_len = len(str(len(list(header_))))
     for i, parameter_ in enumerate(header_):
         parameter_list =  str(parameter_list) + str(i).rjust(fill_len) + " ---> " + str(parameter_) + '\n'
     print(parameter_list)
