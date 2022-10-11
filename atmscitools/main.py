@@ -61,7 +61,7 @@ import matplotlib.dates as mdates
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.cm as cm
 from matplotlib.collections import LineCollection
-from matplotlib.ticker import (MultipleLocator, NullFormatter, ScalarFormatter)
+from matplotlib.ticker import (MultipleLocator, NullFormatter, ScalarFormatter, FormatStrFormatter)
 from matplotlib.colors import ListedColormap, BoundaryNorm, LinearSegmentedColormap
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -156,7 +156,6 @@ plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 
 
-
 time_format = '%d-%m-%Y_%H:%M'
 time_format_iso = '%Y-%m-%dT%H:%M:%SZ'
 time_format_khan = '%Y%m%d.0%H'
@@ -171,8 +170,10 @@ time_format_date = '%Y-%m-%d'
 time_format_date_inverse = '%d-%m-%Y'
 time_format_time = '%H:%M:%S'
 time_format_parsivel = '%Y%m%d%H%M'
+time_format_YMDHM = time_format_parsivel
 time_format_parsivel_ = '%Y%m%d_%H%M'
 time_format_parsivel_seconds = '%Y%m%d%H%M%S'
+time_format_YMDHMS = time_format_parsivel_seconds
 time_str_formats = [
     time_format,
     time_format_mod,
@@ -580,15 +581,17 @@ def array_2d_fill_gaps_by_interpolation_linear(array_):
         if row_sum[r_] != row_sum[r_]:
             # get X direction interpolation
             coin_out = coincidence(col_index, array_[r_, :])
-            output_array_X[r_, :][np.isnan(array_[r_, :])] = interpolate_1d(
-                col_index[np.isnan(array_[r_, :])], coin_out[0], coin_out[1])
+            if coin_out[0].shape[0] > 0:
+                output_array_X[r_, :][np.isnan(array_[r_, :])] = interpolate_1d(
+                    col_index[np.isnan(array_[r_, :])], coin_out[0], coin_out[1])
 
     for c_ in range(array_.shape[1]):
         if col_sum[c_] != col_sum[c_]:
             # get Y direction interpolation
             coin_out = coincidence(row_index, array_[:, c_])
-            output_array_Y[:, c_][np.isnan(array_[:, c_])] = interpolate_1d(
-                row_index[np.isnan(array_[:, c_])], coin_out[0], coin_out[1])
+            if coin_out[0].shape[0] > 0:
+                output_array_Y[:, c_][np.isnan(array_[:, c_])] = interpolate_1d(
+                    row_index[np.isnan(array_[:, c_])], coin_out[0], coin_out[1])
 
     output_array = np.array(array_)
     output_array[np.isnan(array_)] = 0
@@ -611,15 +614,17 @@ def array_2d_fill_gaps_by_interpolation_cubic(array_):
         if row_sum[r_] != row_sum[r_]:
             # get X direction interpolation
             coin_out = coincidence(col_index, array_[r_, :])
-            interp_function = interp1d(coin_out[0], coin_out[1], kind='cubic')
-            output_array_X[r_, :][np.isnan(array_[r_, :])] = interp_function(col_index[np.isnan(array_[r_, :])])
+            if coin_out[0].shape[0] > 0:
+                interp_function = interp1d(coin_out[0], coin_out[1], kind='cubic')
+                output_array_X[r_, :][np.isnan(array_[r_, :])] = interp_function(col_index[np.isnan(array_[r_, :])])
 
     for c_ in range(array_.shape[1]):
         if col_sum[c_] != col_sum[c_]:
             # get Y direction interpolation
             coin_out = coincidence(row_index, array_[:, c_])
-            interp_function = interp1d(coin_out[0], coin_out[1], kind='cubic')
-            output_array_Y[:, c_][np.isnan(array_[:, c_])] = interp_function(row_index[np.isnan(array_[:, c_])])
+            if coin_out[0].shape[0] > 0:
+                interp_function = interp1d(coin_out[0], coin_out[1], kind='cubic')
+                output_array_Y[:, c_][np.isnan(array_[:, c_])] = interp_function(row_index[np.isnan(array_[:, c_])])
 
     output_array = np.array(array_)
     output_array[np.isnan(array_)] = 0
@@ -13918,8 +13923,10 @@ def add_coastline_to_ax(ax, coastline_color='yellow', filled_=False,
                                topo_arr[row_1:row_2,col_1:col_2],
                                [0], [coastline_color], filled_=False,
                                zorder_=max([_.zorder for _ in ax.get_children()]))
-
-
+def format_xaxis_ticks(ax, format_='%.2f'):
+    ax.xaxis.set_major_formatter(FormatStrFormatter(format_))
+def format_yaxis_ticks(ax, format_='%.2f'):
+    ax.yaxis.set_major_formatter(FormatStrFormatter(format_))
 def y_axis_labels_and_ticks_to_right(ax):
     try:
         shape_ = ax.shape
