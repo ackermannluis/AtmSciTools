@@ -13957,6 +13957,18 @@ def x_axis_labels_and_ticks_to_top(ax):
         except:
             ax.xaxis.tick_top()
             ax.xaxis.set_label_position("top")
+def custom_legend(color_list, labels_list, ax, loc='lower left', ncol=None, mode="expand", borderaxespad=0.,
+                  bbox_to_anchor=None):
+    patch_list = []
+    for color_, label_ in zip(color_list, labels_list):
+        patch_list.append(mpatches.Patch(color=color_, label=label_))
+    ax.legend(handles=patch_list, bbox_to_anchor=bbox_to_anchor,
+              loc=loc, ncol=ncol, mode=mode, borderaxespad=borderaxespad)
+def change_ax_position(ax, x_start, y_start, x_width, y_width):
+    ax.set_position([x_start, y_start, x_width, y_width])
+def get_ax_position(ax):
+    return ax.get_position()
+
 def plot_precip_cumulative_colored(time_secs, precip_rate, precip_type_NWS, time_step_secs=3600,
                                    x_header='Time', y_header='mm', fig_ax=None, figsize_=(10,6), x_not_time=False,
                                    time_format_=time_format, color_list=listed_cm_colors_list[1:], zorder_=5,
