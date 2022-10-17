@@ -15847,6 +15847,10 @@ def plot_box_from_values(values_x, values_y, x_label=None, y_label=None, bin_siz
     # plot box
     box_dict = ax.boxplot(y_binned, notch=notch, sym=sym, whis=whis, positions=x_binned_arr,
                           showmeans=show_means, widths=bin_size * .9)
+
+    if center_boxes:
+        ax.xaxis.set_ticks(np.array(x_binned_arr, dtype=float) - (bin_size / 2))
+
     # axes labels
     if x_label is not None:
         ax.set_xlabel(x_label)
