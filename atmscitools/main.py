@@ -15780,7 +15780,7 @@ def plot_box_from_values(values_x, values_y, x_label=None, y_label=None, bin_siz
                          custom_y_range_tuple = None, custom_x_range_tuple = None,
                          force_start=None, force_end=None, show_means=True,
                          notch=False, sym='', whis=(5,95), figsize_=(8,5), fig_ax=None,
-                         custom_x_ticks_start_end_step=None, custom_x_ticks_labels_list=None,
+                         custom_x_ticks_start_end_step=None, custom_x_ticks_labels_list=None, center_boxes=False,
                          ):
     x_val_original = values_x
     y_val_original = values_y
@@ -15840,9 +15840,13 @@ def plot_box_from_values(values_x, values_y, x_label=None, y_label=None, bin_siz
         x_binned_arr = np.array(x_binned, dtype=int)
     else:
         x_binned_arr = np.array(x_binned)
-    # add series
-    box_dict = ax.boxplot(y_binned, notch=notch, sym=sym, whis=whis, positions = x_binned_arr,
-                          showmeans = show_means, widths = bin_size * .9)
+    # offset x array if boxes are to be plotted in the center of the bin span
+    if center_boxes:
+        x_binned_arr = np.array(x_binned_arr, dtype=float) + (bin_size / 2)
+
+    # plot box
+    box_dict = ax.boxplot(y_binned, notch=notch, sym=sym, whis=whis, positions=x_binned_arr,
+                          showmeans=show_means, widths=bin_size * .9)
     # axes labels
     if x_label is not None:
         ax.set_xlabel(x_label)
@@ -15930,6 +15934,8 @@ def plot_box_from_values(values_x, values_y, x_label=None, y_label=None, bin_siz
     if custom_y_range_tuple is not None: ax.set_ylim(custom_y_range_tuple)
     if custom_x_range_tuple is not None: ax.set_xlim(custom_x_range_tuple)
 
+    if x_binned_arr[-1] - x_binned_arr[0] > 10:
+        format_xaxis_ticks(ax, '%.0f')
 
     plt.show()
 
