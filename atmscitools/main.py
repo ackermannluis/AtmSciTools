@@ -14044,6 +14044,82 @@ def plot_precip_cumulative_colored(time_secs, precip_rate, precip_type_NWS, time
     plt.show()
 
     return fig, ax
+def p_plot_map_nc(nc_file, var_name=None, lat_name='lat', lon_name='lon',
+                  time_name='time', time_row=None, time_str=None, level_index=None,
+                  vmin_=None, vmax_=None, title_str=None):
+    # open file in case the nc_file argument is a filename, close it when done
+    close_nc=False
+    if type(nc_file) == str:
+        nc_file = nc.Dataset(nc_file)
+        close_nc = True
+
+    var_name_list = sorted(nc_file.variables)
+    if var_name is None:
+        p(var_name_list)
+        input_ = input('which variable to plot (input index or name)')
+
+        if input_ in var_name_list:
+            var_name = input_
+        else:
+            try:
+                var_name = var_name_list[int(input_)]
+                if var_name in var_name_list:
+                    pass
+                else:
+                    print('variable not found! No map created')
+                    if close_nc: nc_file.close()
+                    return
+            except:
+                print('variable not found! No map created')
+                if close_nc: nc_file.close()
+                return
+
+    # get lan and lon arrs
+    if lat_name in var_name_list:
+        lat_ = nc_file.variables[lat_name][:].data
+    elif 'latitude' in var_name_list:
+        lat_ = nc_file.variables['latitude'][:].data
+    else:
+        print('latitude not found! No map created')
+        if close_nc: nc_file.close()
+        return
+    if lon_name in var_name_list:
+        lon_ = nc_file.variables[lon_name][:].data
+    elif 'longitude' in var_name_list:
+        lon_ = nc_file.variables['longitude'][:].data
+    else:
+        print('longitude not found! No map created')
+        if close_nc: nc_file.close()
+        return
+
+
+    if len(nc_file.variables[var_name].shape) == 4 and level_index is None:
+        print('variable has shape:', nc_file.variables[var_name].shape)
+        level_index = int(input('which level index should be displayed?'))
+
+
+
+    if time_row is not None:
+        arr_ = nc_file.variables[var_name][time_row,...].filled(np.nan)
+        if title_str is None:
+            title_str = time_row
+    elif time_str is not None:
+        time_stamp_sec = time_days_to_seconds(convert_any_time_type_to_days(time_str))
+        time_arr_sec = time_days_to_seconds(convert_any_time_type_to_days(nc_file.variables[time_name][:].data))
+        time_row = time_to_row_sec(time_arr_sec, time_stamp_sec)
+        print('closest time stamp found:', time_seconds_to_str(time_arr_sec[time_row], time_format_iso))
+        arr_ = nc_file.variables[var_name][time_row,...].filled(np.nan)
+        if title_str is None:
+            title_str = time_seconds_to_str(time_arr_sec[time_row], time_format_iso)
+    if level_index is not None:
+        if len(arr_.shape) == 3:
+            arr_ = arr_[level_index,...]
+
+    if close_nc: nc_file.close()
+
+    return p_plot_arr(arr_, lon_, lat_, cbar_label=var_name, title_str=title_str, add_coastlines=True,
+                      vmin_=vmin_, vmax_=vmax_)
+
 
 
 class SelectFromCollection(object):
