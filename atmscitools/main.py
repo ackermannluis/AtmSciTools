@@ -13897,7 +13897,11 @@ def add_coastline_to_ax(ax, coastline_color='yellow', filled_=False,
     y_2 += 1
 
     if x_1 > 100 and x_2 < 170 and y_1 > -50 and y_2 < -3 and not filled_:
+        x_1, x_2, y_1, y_2 = get_ax_range(ax)
         add_coastline_aus(ax, color=coastline_color)
+        ax.set_xlim(x_1, x_2)
+        ax.set_ylim(y_1, y_2)
+
     elif x_1 > highres_lon.min() and x_2 < highres_lon.max() and y_1 > highres_lat.min() and y_2 < highres_lat.max():
         row_2 = time_to_row_sec(highres_lat, y_1)
         row_1 = time_to_row_sec(highres_lat, y_2)
