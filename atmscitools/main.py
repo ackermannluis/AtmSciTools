@@ -121,6 +121,8 @@ topo_lon = topo_nc.variables['lon'][:].data
 topo_arr = topo_nc.variables['z'][:].data
 topo_nc.close()
 
+aus_coast_lon_lat = np.load(AtmSciTools_path + '/coast_250m_australia.npy')
+
 access_nc_sfc = nc.Dataset(AtmSciTools_path + '/topo_1km_australia.nc')
 highres_lat = access_nc_sfc.variables['lat'][:].filled(np.nan)
 highres_lon = access_nc_sfc.variables['lon'][:].filled(np.nan)
@@ -13884,6 +13886,8 @@ def add_countour_to_ax(ax, x_, y_, arr_, countour_lines_values_list,
     ax.set_xlim((x_1, x_2))
     ax.set_ylim((y_1, y_2))
     return contours
+def add_coastline_aus(ax, color='black'):
+    ax.plot(aus_coast_lon_lat[:,0], aus_coast_lon_lat[:,1], color)
 def add_coastline_to_ax(ax, coastline_color='yellow', filled_=False,
                         filled_ocean_color='aqua', filled_land_color='saddlebrown'):
     x_1, x_2, y_1, y_2 = get_ax_range(ax)
@@ -13892,7 +13896,9 @@ def add_coastline_to_ax(ax, coastline_color='yellow', filled_=False,
     y_1 -= 1
     y_2 += 1
 
-    if x_1 > highres_lon.min() and x_2 < highres_lon.max() and y_1 > highres_lat.min() and y_2 < highres_lat.max():
+    if x_1 > 100 and x_2 < 170 and y_1 > -50 and y_2 < -3 and not filled_:
+        add_coastline_aus(ax, color=coastline_color)
+    elif x_1 > highres_lon.min() and x_2 < highres_lon.max() and y_1 > highres_lat.min() and y_2 < highres_lat.max():
         row_2 = time_to_row_sec(highres_lat, y_1)
         row_1 = time_to_row_sec(highres_lat, y_2)
         col_1 = time_to_row_sec(highres_lon, x_1)

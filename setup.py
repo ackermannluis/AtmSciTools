@@ -17,7 +17,7 @@ with open(path.join(here, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="atmscitools",
-    version="1.42.0",
+    version="1.43.0",
     description="Atmospheric Science Tools",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -35,7 +35,7 @@ setup(
         "Programming Language :: Python :: 3.8",
     ],
     include_package_data=True,
-    package_data={'': ['*.nc','cdsapirc']},
+    package_data={'': ['*.nc','cdsapirc', '*.npy']},
     keywords="weather meteorology instrumentation",
     packages=find_packages(exclude=["contrib", "docs", "tests", "notebooks"]),
     install_requires=["scp", "xlrd", "imageio", "pyproj", "requests", "numpy", "netCDF4", "scipy", "paramiko",
