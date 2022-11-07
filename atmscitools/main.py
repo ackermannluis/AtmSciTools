@@ -13967,13 +13967,13 @@ def x_axis_labels_and_ticks_to_top(ax):
         except:
             ax.xaxis.tick_top()
             ax.xaxis.set_label_position("top")
-def custom_legend(color_list, labels_list, ax, loc='lower left', ncol=None, mode="expand", borderaxespad=0.,
-                  bbox_to_anchor=None):
+def custom_legend(color_list, labels_list, ax, loc='lower left', ncol=1, mode="expand", borderaxespad=0.,
+                  bbox_to_anchor=None, alpha=0.7, background_color='white'):
     patch_list = []
     for color_, label_ in zip(color_list, labels_list):
         patch_list.append(mpatches.Patch(color=color_, label=label_))
     ax.legend(handles=patch_list, bbox_to_anchor=bbox_to_anchor,
-              loc=loc, ncol=ncol, mode=mode, borderaxespad=borderaxespad)
+              loc=loc, ncol=ncol, mode=mode, borderaxespad=borderaxespad, framealpha=alpha, facecolor=background_color)
 def change_ax_position(ax, x_start, y_start, x_width, y_width):
     ax.set_position([x_start, y_start, x_width, y_width])
 def get_ax_position(ax):
