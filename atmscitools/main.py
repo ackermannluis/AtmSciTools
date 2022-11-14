@@ -115,19 +115,7 @@ warnings.filterwarnings("ignore")
 AtmSciTools_path = str(Path_pathlib(__file__).parent)
 sys.path.append(AtmSciTools_path)
 
-topo_nc = nc.Dataset(AtmSciTools_path + '/topo_0_1degrees.nc')
-topo_lat = topo_nc.variables['lat'][:].data
-topo_lon = topo_nc.variables['lon'][:].data
-topo_arr = topo_nc.variables['z'][:].data
-topo_nc.close()
 
-aus_coast_lon_lat = np.load(AtmSciTools_path + '/coast_250m_australia.npy')
-
-access_nc_sfc = nc.Dataset(AtmSciTools_path + '/topo_1km_australia.nc')
-highres_lat = access_nc_sfc.variables['lat'][:].filled(np.nan)
-highres_lon = access_nc_sfc.variables['lon'][:].filled(np.nan)
-highres_topo = access_nc_sfc.variables['topog'][:].filled(np.nan)
-access_nc_sfc.close()
 
 try:
     matplotlib.use('Qt5Agg')
@@ -302,7 +290,43 @@ mv = 18.0153e-3         # Mean molar mass of water vapor(kg/mol)
 m_a = 28.9644e-3        # Mean molar mass of air(kg/mol)
 Rstar_a = 8.31432       # Universal gas constant for air (N m /(mol K))
 
-
+# functions to load basemap and topographical data when first used
+aus_coastline_loaded = False
+glob_coastline_loaded = False
+glob_topo_loaded = False
+aus_topo_loaded = False
+def load_aus_coastline():
+    global aus_coast_lon, aus_coast_lat, aus_coastline_loaded
+    aus_basemap_nc = nc.Dataset(AtmSciTools_path + '/aus_basemap.nc')
+    aus_coast_lon = aus_basemap_nc.variables['lon'][:].filled(np.nan)
+    aus_coast_lat = aus_basemap_nc.variables['lat'][:].filled(np.nan)
+    aus_basemap_nc.close()
+    aus_coastline_loaded = True
+def load_global_coastline():
+    global glob_coast_lat, glob_coast_lon, glob_coastline_loaded
+    glob_basemap_lat_nc = nc.Dataset(AtmSciTools_path + '/glob_basemap_lat.nc')
+    glob_coast_lat = glob_basemap_lat_nc.variables['lat'][:].filled(np.nan)
+    glob_basemap_lat_nc.close()
+    glob_basemap_lon_nc = nc.Dataset(AtmSciTools_path + '/glob_basemap_lon.nc')
+    glob_coast_lon = glob_basemap_lon_nc.variables['lon'][:].filled(np.nan)
+    glob_basemap_lon_nc.close()
+    glob_coastline_loaded = True
+def load_glob_topo():
+    global topo_lat, topo_lon, topo_arr, glob_topo_loaded
+    topo_nc = nc.Dataset(AtmSciTools_path + '/topo_0_1degrees.nc')
+    topo_lat = topo_nc.variables['lat'][:].data
+    topo_lon = topo_nc.variables['lon'][:].data
+    topo_arr = topo_nc.variables['z'][:].data
+    topo_nc.close()
+    glob_topo_loaded = True
+def load_aus_topo():
+    global highres_lat, highres_lon, highres_topo, aus_topo_loaded
+    access_nc_sfc = nc.Dataset(AtmSciTools_path + '/topo_1km_australia.nc')
+    highres_lat = access_nc_sfc.variables['lat'][:].filled(np.nan)
+    highres_lon = access_nc_sfc.variables['lon'][:].filled(np.nan)
+    highres_topo = access_nc_sfc.variables['topog'][:].filled(np.nan)
+    access_nc_sfc.close()
+    aus_topo_loaded = True
 
 # Misc
 def scientific_notation_stop_numpy():
@@ -13887,7 +13911,11 @@ def add_countour_to_ax(ax, x_, y_, arr_, countour_lines_values_list,
     ax.set_ylim((y_1, y_2))
     return contours
 def add_coastline_aus(ax, color='black'):
-    ax.plot(aus_coast_lon_lat[:,0], aus_coast_lon_lat[:,1], color)
+    if not aus_coastline_loaded: load_aus_coastline()
+    ax.plot(aus_coast_lon, aus_coast_lat, color)
+def add_coastline_glob(ax, color='black'):
+    if not glob_coastline_loaded: load_global_coastline()
+    ax.plot(glob_coast_lon, glob_coast_lat, color)
 def add_coastline_to_ax(ax, coastline_color='yellow', filled_=False,
                         filled_ocean_color='aqua', filled_land_color='saddlebrown'):
     x_1, x_2, y_1, y_2 = get_ax_range(ax)
@@ -13896,43 +13924,41 @@ def add_coastline_to_ax(ax, coastline_color='yellow', filled_=False,
     y_1 -= 1
     y_2 += 1
 
-    if x_1 > 100 and x_2 < 170 and y_1 > -50 and y_2 < -3 and not filled_:
-        x_1, x_2, y_1, y_2 = get_ax_range(ax)
-        add_coastline_aus(ax, color=coastline_color)
-        ax.set_xlim(x_1, x_2)
-        ax.set_ylim(y_1, y_2)
+    if filled_:
 
-    elif x_1 > highres_lon.min() and x_2 < highres_lon.max() and y_1 > highres_lat.min() and y_2 < highres_lat.max():
-        row_2 = time_to_row_sec(highres_lat, y_1)
-        row_1 = time_to_row_sec(highres_lat, y_2)
-        col_1 = time_to_row_sec(highres_lon, x_1)
-        col_2 = time_to_row_sec(highres_lon, x_2)
-        if filled_:
+        if x_1 > 110 and x_2 < 156 and y_1 > -44 and y_2 < -10:
+            if not aus_topo_loaded: load_aus_topo()
+            row_2 = time_to_row_sec(highres_lat, y_1)
+            row_1 = time_to_row_sec(highres_lat, y_2)
+            col_1 = time_to_row_sec(highres_lon, x_1)
+            col_2 = time_to_row_sec(highres_lon, x_2)
             add_countour_to_ax(ax, highres_lon[col_1:col_2], highres_lat[row_1:row_2],
-                               highres_topo[row_1:row_2,col_1:col_2],
-                               [-99999,0, 9999], [filled_ocean_color,filled_land_color, filled_land_color],
+                               highres_topo[row_1:row_2, col_1:col_2],
+                               [-99999, 0, 9999], [filled_ocean_color, filled_land_color, filled_land_color],
                                filled_=True, zorder_=0)
         else:
-            add_countour_to_ax(ax, highres_lon[col_1:col_2], highres_lat[row_1:row_2],
-                               highres_topo[row_1:row_2,col_1:col_2],
-                               [0], [coastline_color], filled_=False,
-                               zorder_=max([_.zorder for _ in ax.get_children()]))
+            if not glob_topo_loaded: load_glob_topo()
+            row_1 = time_to_row_sec(topo_lat, y_1)
+            row_2 = time_to_row_sec(topo_lat, y_2)
+            col_1 = time_to_row_sec(topo_lon, x_1)
+            col_2 = time_to_row_sec(topo_lon, x_2)
+            add_countour_to_ax(ax, topo_lon[col_1:col_2], topo_lat[row_1:row_2],
+                               topo_arr[row_1:row_2, col_1:col_2],
+                               [-99999, 0, 9999], [filled_ocean_color, filled_land_color, filled_land_color],
+                               filled_=True, zorder_=0)
     else:
-        row_1 = time_to_row_sec(topo_lat, y_1)
-        row_2 = time_to_row_sec(topo_lat, y_2)
-        col_1 = time_to_row_sec(topo_lon, x_1)
-        col_2 = time_to_row_sec(topo_lon, x_2)
-
-        if filled_:
-            add_countour_to_ax(ax, topo_lon[col_1:col_2], topo_lat[row_1:row_2],
-                               topo_arr[row_1:row_2,col_1:col_2],
-                               [-99999,0, 9999], [filled_ocean_color,filled_land_color, filled_land_color],
-                               filled_=True, zorder_=0)
+        if x_1 > 100 and x_2 < 170 and y_1 > -50 and y_2 < -3:
+            x_1, x_2, y_1, y_2 = get_ax_range(ax)
+            add_coastline_aus(ax, color=coastline_color)
+            ax.set_xlim(x_1, x_2)
+            ax.set_ylim(y_1, y_2)
         else:
-            add_countour_to_ax(ax, topo_lon[col_1:col_2], topo_lat[row_1:row_2],
-                               topo_arr[row_1:row_2,col_1:col_2],
-                               [0], [coastline_color], filled_=False,
-                               zorder_=max([_.zorder for _ in ax.get_children()]))
+            x_1, x_2, y_1, y_2 = get_ax_range(ax)
+            add_coastline_glob(ax, color=coastline_color)
+            ax.set_xlim(x_1, x_2)
+            ax.set_ylim(y_1, y_2)
+
+
 def format_xaxis_ticks(ax, format_='%.2f'):
     ax.xaxis.set_major_formatter(FormatStrFormatter(format_))
 def format_yaxis_ticks(ax, format_='%.2f'):
