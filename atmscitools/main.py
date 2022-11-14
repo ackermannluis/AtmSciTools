@@ -14004,6 +14004,10 @@ def change_ax_position(ax, x_start, y_start, x_width, y_width):
     ax.set_position([x_start, y_start, x_width, y_width])
 def get_ax_position(ax):
     return ax.get_position()
+def get_current_fig_axs():
+    fig = plt.gcf()
+    axs = fig.axes
+    return fig, axs
 
 def plot_precip_cumulative_colored(time_secs, precip_rate, precip_type_NWS, time_step_secs=3600,
                                    x_header='Time', y_header='mm', fig_ax=None, figsize_=(10,6), x_not_time=False,
