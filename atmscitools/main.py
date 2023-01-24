@@ -328,6 +328,25 @@ def load_aus_topo():
     access_nc_sfc.close()
     aus_topo_loaded = True
 
+# NCI - Gadi
+def gadi_get_job_id():
+    job_id_filename_list = list_files_recursive('.', 'job_id_file.txt')
+    if len(job_id_filename_list) == 1:
+        with open(job_id_filename_list[0]) as file_:
+            job_id = file_.readline().split('/')[-1].split('.')[0]
+        return job_id
+    else:
+        return None
+def gadi_get_job_path():
+    job_id_filename_list = list_files_recursive('.', 'job_id_file.txt')
+    if len(job_id_filename_list) == 1:
+        with open(job_id_filename_list[0]) as file_:
+            job_path = file_.readline().strip() + '/'
+        return job_path
+    else:
+        return None
+
+
 # Misc
 def scientific_notation_stop_numpy():
     np.set_printoptions(suppress=True)
@@ -1336,6 +1355,8 @@ def pdf_convert_pages_to_images(pdf_filename, pdi=500):
         page_number_str = str(i_).zfill(3)
         page_filename = root_name_for_images + '_' + page_number_str + '.png'
         page_image.save(page_filename)
+def raise_error(text_):
+    raise ValueError(text_)
 
 # WRF
 def get_WRF_domain_periometer_only(output_filename):
