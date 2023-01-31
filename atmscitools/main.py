@@ -346,6 +346,14 @@ def gadi_get_job_path():
     else:
         return None
 
+# Hail
+def shi_to_mesh75(SHI_):
+    MESH_75 = 15.096 * SHI_ ** 0.20
+    return MESH_75
+def mesh_to_damages(MESH_mm, slope_, inflex_, max_y):
+    damages_perc = max_y / (1 + (e_constant ** (-slope_ * (MESH_mm - inflex_))))
+    return damages_perc
+
 
 # Misc
 def scientific_notation_stop_numpy():
