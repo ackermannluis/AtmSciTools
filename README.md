@@ -16,7 +16,7 @@ use git to check out the repository:
 
 `git clone git@github.com:ackermannluis/AtmSciTools.git`
 
-To install in your home directory, use:
+To install, go to your terminal or cmd, navegate (cd) to the AtmSciTools directory and run:
 
 `python setup.py install --user`
 
