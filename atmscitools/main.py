@@ -58,6 +58,7 @@ from scipy.optimize import curve_fit
 from scipy.cluster.vq import kmeans,vq
 from scipy.interpolate import interpn, interp1d
 import matplotlib.dates as mdates
+import dateutil.tz
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.cm as cm
 from matplotlib.collections import LineCollection
@@ -115,7 +116,7 @@ warnings.filterwarnings("ignore")
 AtmSciTools_path = str(Path_pathlib(__file__).parent)
 sys.path.append(AtmSciTools_path)
 
-
+tz_UTC = dateutil.tz.gettz('UTC')
 
 try:
     matplotlib.use('Qt5Agg')
@@ -11982,7 +11983,7 @@ def compare_WRF_PBL_to_CL51(wrf_filename, cl51_filename_list, dot_filename):
 
 
 
-    plot_format_mayor = mdates.DateFormatter('%H:%M %d %b %y', tz='UTC')
+    plot_format_mayor = mdates.DateFormatter('%H:%M %d %b %y', tz=tz_UTC)
     ax.xaxis.set_major_formatter(plot_format_mayor)
 
     plt.show()
@@ -12051,7 +12052,7 @@ def save_chart_WRF_PBL_CL51(wrf_filename, cl51_filename_list, dot_filename):
 
 
 
-        plot_format_mayor = mdates.DateFormatter('%H %d-%b-%y', tz='UTC')
+        plot_format_mayor = mdates.DateFormatter('%H %d-%b-%y', tz=tz_UTC)
         ax.xaxis.set_major_formatter(plot_format_mayor)
 
         ax.set_xlim(temp_T[0],temp_T[-1])
@@ -13229,7 +13230,7 @@ def save_time_series_charts(filename_, parameter_list):
     header_, values_, time_str = load_data_to_return_return(filename_)
 
     for par_index in parameter_list:
-        plot_format_mayor = mdates.DateFormatter('%b', tz='UTC')
+        plot_format_mayor = mdates.DateFormatter('%b', tz=tz_UTC)
         fig, ax = plt.subplots(figsize=(20, 10))
         ax.plot_date(values_[:,0],values_[:,par_index],'ko-', markersize=2, markeredgewidth=0)
         ax.xaxis.set_major_formatter(plot_format_mayor)
@@ -13428,7 +13429,7 @@ def save_nucleation_charts(filename_):
 
         fig, ax_ = p_arr_vectorized(A_, cbar_label='dN/dlog$_1$$_0$D [cm$^-$$^3$]', figsize_=(20,10))
 
-        plot_format_mayor = mdates.DateFormatter('%H:%M', tz='UTC')
+        plot_format_mayor = mdates.DateFormatter('%H:%M', tz=tz_UTC)
         ax_.xaxis.set_major_formatter(plot_format_mayor)
 
         ax_.set_title(sheet_key)
@@ -13823,7 +13824,7 @@ def p_plot(X_series, Y_,
                                 marker=marker_, zorder=zorder_, vmin=vmin_, vmax=vmax_, alpha=alpha_)
 
                 if x_is_time_cofirmed:
-                    plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
+                    plot_format_mayor = mdates.DateFormatter(time_format_, tz=tz_UTC)
                     ax.format_coord = lambda x, y: 'x=%s, y=%g, v=%g' % (plot_format_mayor(x), y,
                                                                          c_[np.nanargmin((Y_ - y)**2 + (X_ - x)**2)])
                 else:
@@ -13890,9 +13891,9 @@ def p_plot(X_series, Y_,
     if x_as_time==True and density_==False and invert_x==False and log_x==False and x_is_time_cofirmed==True:
 
         if time_format_ is None:
-            plot_format_mayor = mdates.DateFormatter(time_format_mod, tz='UTC')
+            plot_format_mayor = mdates.DateFormatter(time_format_mod, tz=tz_UTC)
         else:
-            plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
+            plot_format_mayor = mdates.DateFormatter(time_format_, tz=tz_UTC)
         ax.xaxis.set_major_formatter(plot_format_mayor)
     else:
         ax.ticklabel_format(useOffset=False)
@@ -14064,7 +14065,7 @@ def p_plot_arr(array_v, array_x, array_y,
 
 
     if time_format_ is not None:
-        plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
+        plot_format_mayor = mdates.DateFormatter(time_format_, tz=tz_UTC)
         ax.xaxis.set_major_formatter(plot_format_mayor)
         ax.format_coord = lambda x, y: 'x=%s, y=%g, v=%g' % (plot_format_mayor(x),
                                                              y,
@@ -14375,7 +14376,7 @@ def plot_precip_cumulative_colored(time_secs, precip_rate, precip_type_NWS, time
     else:
         ax.stackplot(time_seconds_to_days(temp_time_mean), cumulative_y.T, labels=labels_, colors=color_list,
                      zorder=zorder_)
-        plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
+        plot_format_mayor = mdates.DateFormatter(time_format_, tz=tz_UTC)
         ax.xaxis.set_major_formatter(plot_format_mayor)
 
 
@@ -14649,7 +14650,7 @@ def p_arr_vectorized_2(array_v, array_x, array_y,custom_y_range_tuple=None, cust
     if custom_x_range_tuple is not None: ax.set_xlim(custom_x_range_tuple)
 
     if time_format_ is not None:
-        plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
+        plot_format_mayor = mdates.DateFormatter(time_format_, tz=tz_UTC)
         ax.xaxis.set_major_formatter(plot_format_mayor)
 
     if figure_filename is not None:
@@ -14779,7 +14780,7 @@ def p_arr_vectorized_3(array_v, array_x, array_y,
 
 
     if time_format_ is not None:
-        plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
+        plot_format_mayor = mdates.DateFormatter(time_format_, tz=tz_UTC)
         ax.xaxis.set_major_formatter(plot_format_mayor)
         ax.format_coord = lambda x, y: 'x=%s, y=%g, v=%g' % (plot_format_mayor(x),
                                                              y,
@@ -14880,7 +14881,7 @@ def p_arr(A_, cmap_=default_cm, extend_x1_x2_y1_y2 =(0,1), figsize_= (10, 6), as
 
 
     if x_as_time:
-        plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
+        plot_format_mayor = mdates.DateFormatter(time_format_, tz=tz_UTC)
         ax.xaxis.set_major_formatter(plot_format_mayor)
 
     if x_header is not None: ax.set_xlabel(x_header)
@@ -14950,7 +14951,7 @@ def p_plot_colored_lines(x_array, y_array, color_array, tick_labels_list, fig_ax
     if x_header is not None: ax.set_xlabel(x_header)
     ax.grid(grid_)
     if time_format != '':
-        plot_format_mayor = mdates.DateFormatter(time_format, tz='UTC')
+        plot_format_mayor = mdates.DateFormatter(time_format, tz=tz_UTC)
         ax.xaxis.set_major_formatter(plot_format_mayor)
     # plt.xticks(rotation=45)
     if custom_y_range_tuple is not None: ax.set_ylim(custom_y_range_tuple)
@@ -15020,7 +15021,7 @@ def p_plot_colored_bars(x_array, y_array, color_list, color_list_unique, color_t
     #     cb2 = None
 
     if x_is_time_cofirmed:
-        plot_format_mayor = mdates.DateFormatter(time_format, tz='UTC')
+        plot_format_mayor = mdates.DateFormatter(time_format, tz=tz_UTC)
         ax.xaxis.set_major_formatter(plot_format_mayor)
 
     if y_header is not None: ax.set_ylabel(y_header)
@@ -15627,7 +15628,7 @@ def plot_3D_stacket_series_lines(x_z_series_list, y_series=None, y_as_time=False
         ax.set_zlabel(label_names_tuples_xyz[2])
 
     if y_as_time:
-        plot_format_mayor = mdates.DateFormatter(time_format, tz='UTC')
+        plot_format_mayor = mdates.DateFormatter(time_format, tz=tz_UTC)
         ax.yaxis.set_major_formatter(plot_format_mayor)
 
     if custom_x_range_tuple is not None: ax.set_xlim(custom_x_range_tuple)
@@ -15690,7 +15691,7 @@ def plot_shared_x_axis(X_Y_list, S_=5, x_header=None,y_header_list=None, t_line=
                                                              custom_y_ticks_start_end_step[2]))
 
         if x_as_time:
-            plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
+            plot_format_mayor = mdates.DateFormatter(time_format_, tz=tz_UTC)
             ax_list[series_number].xaxis.set_major_formatter(plot_format_mayor)
 
         if invert_y:
@@ -15765,7 +15766,7 @@ def plot_shared_y_axis(X_Y_list, S_=5, x_header_list=None, y_header=None, t_line
                                                              custom_y_ticks_start_end_step[2]))
 
         if x_as_time:
-            plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
+            plot_format_mayor = mdates.DateFormatter(time_format_, tz=tz_UTC)
             ax_list[series_number].xaxis.set_major_formatter(plot_format_mayor)
 
         if invert_y:
@@ -15826,7 +15827,7 @@ def scatter_custom_size(X_,Y_,S_, x_header=None,y_header=None, t_line=False, gri
         ax.yaxis.set_ticks(np.arange(custom_y_ticks_start_end_step[0], custom_y_ticks_start_end_step[1], custom_y_ticks_start_end_step[2]))
 
     if x_as_time:
-        plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
+        plot_format_mayor = mdates.DateFormatter(time_format_, tz=tz_UTC)
         ax.xaxis.set_major_formatter(plot_format_mayor)
 
     if save_fig:
@@ -15887,7 +15888,7 @@ def power_plot_with_error(X_, Y_, yerr_, Size_=5, c_='', x_header='',y_header=''
     plt.show()
 def plot_preview_x_as_time(header_,days_,values_):
 
-    plot_format_mayor = mdates.DateFormatter('%H:%M %d%b%y', tz='UTC')
+    plot_format_mayor = mdates.DateFormatter('%H:%M %d%b%y', tz=tz_UTC)
     fig, ax = plt.subplots()
     if len(values_.shape) > 1:
         for c_ in range(values_.shape[1]):
@@ -15899,7 +15900,7 @@ def plot_preview_x_as_time(header_,days_,values_):
 def plot_values_x_as_time(header_,values_,x_array,y_list,
                           legend_=False, plot_fmt_str0='%H:%M %d%b%y'):
     color_list = default_cm(np.linspace(0,1,len(y_list)))
-    plot_format_mayor = mdates.DateFormatter(plot_fmt_str0, tz='UTC')
+    plot_format_mayor = mdates.DateFormatter(plot_fmt_str0, tz=tz_UTC)
     fig, ax = plt.subplots()
     for c_,y_ in enumerate(y_list):
         color_ = color_list[c_]
