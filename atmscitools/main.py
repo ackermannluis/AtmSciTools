@@ -8243,6 +8243,291 @@ def CFAD(Y_array, x_values_array, bins_tuple_y_x=(12, np.arange(-10, 40, 2)), no
 
 
 # parsivel
+def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
+    """
+    Reads the raw data generated using https://github.com/ackermannluis/parsivel2_datalogger from a
+    parsive-2 disdrometer, calculates the spectrum concentration, and other supporting variables, and saves
+    data to a netcdf file.
+    :param filename_input_csv: full path of input file created by https://github.com/ackermannluis/parsivel2_datalogger
+    :param filename_output_nc: should include full path and extension. It will replace file if already exist!
+    :return: None
+    """
+
+    # read data
+    with open(filename_input_csv, 'r') as file_:
+        file_lines_list = file_.readlines()
+
+    # get header
+    file_header_list = file_lines_list[0].split(delimeter_)[:-1]
+
+    # segregate data into variables using a dictionary with keys from the header
+    dict_raw_lists = {}
+    for var_name in file_header_list:
+        dict_raw_lists[var_name] = []
+
+    # populate raw dictionary
+    for row_ in range(1, len(file_lines_list)):
+        row_list = file_lines_list[row_].split(delimeter_)
+        if len(row_list) == 1040:
+            for col_, var_name in enumerate(file_header_list):
+                if var_name == 'raw_spectra':
+                    dict_raw_lists[var_name].append(row_list[15:-1])  # spectra is a flat list, not a single value
+                else:
+                    dict_raw_lists[var_name].append(row_list[col_])
+
+    # reformat time
+    time_arr = time_str_to_seconds(dict_raw_lists['datetime'], time_format_mod) # unix time
+
+    # reshape spectrum data
+    raw_spectrum_list = dict_raw_lists['raw_spectra']
+    spectrum_array = np.zeros((len(raw_spectrum_list), 32, 32), dtype=int)
+    for row_ in range(len(raw_spectrum_list)):
+        spectrum_array[row_, :, :] = np.array(raw_spectrum_list[row_], dtype=int).reshape((32,32))
+
+    # create spectrum axis arrays
+    size_scale = np.array([0.062,0.187,0.312,0.437,0.562,0.687,0.812,0.937,1.062,1.187,1.375,1.625,1.875,
+                  2.125,2.375,2.75,3.25,3.75,4.25,4.75,5.5,6.5,7.5,8.5,9.5,11,13,15,17,19,21.5,24.5])
+    speed_scale = np.array([0.05,0.15,0.25,0.35,0.45,0.55,0.65,0.75,0.85,0.95,1.1,1.3,1.5,1.7,1.9,2.2,2.6,3,3.4,
+                   3.8,4.4,5.2,6,6.8,7.6,8.8,10.4,12,13.6,15.2,17.6,20.8])
+    speed_array = np.zeros((32,32), dtype=float)
+    size_array = np.zeros((32, 32), dtype=float)
+    for i in range(32):
+        speed_array[:,i] = speed_scale
+        size_array[i, :] = size_scale
+
+    # get sampling volume
+    sampling_volume_2d = parsivel_sampling_volume(size_array, speed_array)
+
+    # calculate spectrum concentration
+    particle_concentration_spectrum = spectrum_array / sampling_volume_2d
+
+    # create particle_concentration_total_m-3
+    particle_concentration_total = np.nansum(np.nansum(particle_concentration_spectrum, axis=-1), axis=-1)
+
+    # get hydrometer type
+    hydrometeor_type = parsivel_convert_METAR_code_to_numbers(np.array(dict_raw_lists['rain_intensity_mm/hr'],
+                                                                       dtype=float),
+                                                              np.array(dict_raw_lists['weather_code_METAR'],
+                                                                       dtype=str))
+
+    # calculate PSD per size bin
+    PSD_array = np.sum(particle_concentration_spectrum, axis=1)
+
+
+    # start output dictionary
+    dict_ = {}
+    dict_['variables'] = {}
+    dict_['dimensions'] = ('time', 'particle_fall_speed', 'particle_optical_diameter')
+
+    attribute_list = [
+        ('author', 'Luis Ackermann'),
+        ('author email', 'ackermannluis@gmail.com'),
+        ('version', '1'),
+        ('time of file creation', time_seconds_to_str(time.time(), '%Y-%m-%d_%H:%M UTC')),
+        ('data source', 'parsivel-2 disdrometer, from custom acquisition software'),
+        ('custom acquisition software source', 'https://github.com/ackermannluis/parsivel2_datalogger'),
+        ('sensor serial number', dict_raw_lists['sensor_serial_number'][0]),
+    ]
+    dict_['attributes'] = attribute_list
+
+    # ############################   dimensions   # ############################
+    # ############################
+    variable_name = 'time'
+    day_time_str = time_seconds_to_str(0, '%Y-%m-%d_%H:%M:%S UTC')
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'seconds since ' + day_time_str),
+        ('description', 'time stamp is at end of average period')]
+    dict_['variables'][variable_name]['data'] = time_arr
+
+    # ############################
+    variable_name = 'particle_fall_speed'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('particle_fall_speed',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'm s-1'),
+        ('description', 'speed at which the particle is falling. Directly measured by parsivel')]
+    dict_['variables'][variable_name]['data'] = speed_scale
+
+    # ############################
+    variable_name = 'particle_optical_diameter'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('particle_optical_diameter',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'mm'),
+        ('description', 'center of bin size of the effective optical diameter of particles. '
+                        'Directly measured by parsivel')]
+    dict_['variables'][variable_name]['data'] = size_scale
+
+    # ############################   variables   # ############################
+
+    # ############################
+    variable_name = 'datetime'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'YYYY-mm-dd_HH:MM:SS'),
+        ('description', 'string with time in YYYY-mm-dd_HH:MM:SS format')]
+    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists[variable_name], dtype=str)
+
+    # ############################
+    variable_name = 'particle_count_spectrum'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time', 'particle_fall_speed', 'particle_optical_diameter')
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'particles per minute'),
+        ('description', 'number of particles observed during the minute for each speed and size bin')]
+    dict_['variables'][variable_name]['data'] = spectrum_array
+
+    # ############################
+    variable_name = 'particle_concentration_spectrum'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time', 'particle_fall_speed', 'particle_optical_diameter')
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'particles per m3'),
+        ('description', 'concentration of particles observed during the minute for each speed and size bin')]
+    dict_['variables'][variable_name]['data'] = particle_concentration_spectrum
+
+    # ############################
+    variable_name = 'particle_concentration_total'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'particles per m3'),
+        ('description', 'sum of concentration of particles observed during the minute')]
+    dict_['variables'][variable_name]['data'] = particle_concentration_total
+
+    # ############################
+    variable_name = 'rain_intensity'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'mm hr-1'),
+        ('description', 'rain intensity of the last minute in millimeters per hour')]
+    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['rain_intensity_mm/hr'], dtype=float)
+
+    # ############################
+    variable_name = 'rain_accumulated'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'mm'),
+        ('description', 'rain accumulated since restart of instrument')]
+    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['rain_accumulated_mm'], dtype=float)
+
+    # ############################
+    variable_name = 'weather_code_METAR'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'flag string'),
+        ('description', 'type of precipitation flagged using METAR codes. '
+                        'see function "parsivel_convert_METAR_code_to_numbers" in '
+                        'https://github.com/ackermannluis/AtmSciTools for further details')]
+    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['weather_code_METAR'], dtype=str)
+
+    # ############################
+    variable_name = 'weather_code_SYNOP'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'flag int'),
+        ('description', 'type of precipitation flagged using SYNOP codes')]
+    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['weather_code_SYNOP'], dtype=int)
+
+    # ############################
+    variable_name = 'hydrometeor_type'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'flag int'),
+        ('description', '0=no precip, 1=rain, 2=freezing rain, 3=mix, 4=frozen')]
+    dict_['variables'][variable_name]['data'] = hydrometeor_type
+
+    # ############################
+    variable_name = 'radar_reflectivity'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'dBz'),
+        ('description', 'radar reflectivity derived from the particle size distribution')]
+    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['radar_reflectivity_dBz'], dtype=float)
+
+    # ############################
+    variable_name = 'MOR_visibility'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'meters'),
+        ('description', 'Meteorological Optical Range')]
+    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['MOR_visibility_m'], dtype=int)
+
+    # ############################
+    variable_name = 'number_of_particles_detected'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'counts per minute'),
+        ('description', 'total number of particles detected in last minute')]
+    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['number_of_particles_detected'], dtype=int)
+
+    # ############################
+    variable_name = 'sensor_temperature'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'celsius'),
+        ('description', 'temperature of the sensor. Course measurement, not equal to ambient temperature')]
+    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['sensor_temperature'], dtype=int)
+
+    # ############################
+    variable_name = 'power_supply_voltage'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'volts'),
+        ('description', 'voltage of the power supply for the instrument')]
+    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['power_supply_voltage_V'], dtype=float)
+
+    # ############################
+    variable_name = 'sensor_status'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'flag int'),
+        ('description', 'error flag regarding the status of the instrument, 0 means all good')]
+    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['sensor_status'], dtype=int)
+
+    # ############################
+    variable_name = 'kinetic_energy'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'J m-2 h-1'),
+        ('description', 'total kinetic energy of hydrometeors')]
+    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['kinetic_energy_J/m2h'], dtype=float)
+
+    # ############################
+    variable_name = 'snow_intensity'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time',)
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', ' mm hr-1'),
+        ('description', 'estimate of equivalent liquid volume of snow precipitation rate')]
+    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['snow_intensity_mm/h'], dtype=float)
+
+    # ############################
+    variable_name = 'PSD'
+    dict_['variables'][variable_name] = {}
+    dict_['variables'][variable_name]['dimensions'] = ('time', 'particle_optical_diameter')
+    dict_['variables'][variable_name]['attributes'] = [
+        ('units', 'particles per m3'),
+        ('description', 'sum of concentration of particles at different speeds as a function of optical diameter.')]
+    dict_['variables'][variable_name]['data'] = PSD_array
+
+
+    save_dictionary_to_netcdf(dict_, filename_output_nc)
 def create_DSD_plot(DSD_arr, time_parsivel_seconds, size_arr, events_period_str, figfilename='',
                     output_data=False, x_range=(0, 7.5), y_range=(-1, 3.1), figsize_=(5, 5)):
     size_series = size_arr[0, :]
@@ -11697,7 +11982,7 @@ def compare_WRF_PBL_to_CL51(wrf_filename, cl51_filename_list, dot_filename):
 
 
 
-    plot_format_mayor = mdates.DateFormatter('%H:%M %d %b %y')
+    plot_format_mayor = mdates.DateFormatter('%H:%M %d %b %y', tz='UTC')
     ax.xaxis.set_major_formatter(plot_format_mayor)
 
     plt.show()
@@ -11766,7 +12051,7 @@ def save_chart_WRF_PBL_CL51(wrf_filename, cl51_filename_list, dot_filename):
 
 
 
-        plot_format_mayor = mdates.DateFormatter('%H %d-%b-%y')
+        plot_format_mayor = mdates.DateFormatter('%H %d-%b-%y', tz='UTC')
         ax.xaxis.set_major_formatter(plot_format_mayor)
 
         ax.set_xlim(temp_T[0],temp_T[-1])
@@ -12944,7 +13229,7 @@ def save_time_series_charts(filename_, parameter_list):
     header_, values_, time_str = load_data_to_return_return(filename_)
 
     for par_index in parameter_list:
-        plot_format_mayor = mdates.DateFormatter('%b')
+        plot_format_mayor = mdates.DateFormatter('%b', tz='UTC')
         fig, ax = plt.subplots(figsize=(20, 10))
         ax.plot_date(values_[:,0],values_[:,par_index],'ko-', markersize=2, markeredgewidth=0)
         ax.xaxis.set_major_formatter(plot_format_mayor)
@@ -13143,7 +13428,7 @@ def save_nucleation_charts(filename_):
 
         fig, ax_ = p_arr_vectorized(A_, cbar_label='dN/dlog$_1$$_0$D [cm$^-$$^3$]', figsize_=(20,10))
 
-        plot_format_mayor = mdates.DateFormatter('%H:%M')
+        plot_format_mayor = mdates.DateFormatter('%H:%M', tz='UTC')
         ax_.xaxis.set_major_formatter(plot_format_mayor)
 
         ax_.set_title(sheet_key)
@@ -13538,7 +13823,7 @@ def p_plot(X_series, Y_,
                                 marker=marker_, zorder=zorder_, vmin=vmin_, vmax=vmax_, alpha=alpha_)
 
                 if x_is_time_cofirmed:
-                    plot_format_mayor = mdates.DateFormatter(time_format_)
+                    plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
                     ax.format_coord = lambda x, y: 'x=%s, y=%g, v=%g' % (plot_format_mayor(x), y,
                                                                          c_[np.nanargmin((Y_ - y)**2 + (X_ - x)**2)])
                 else:
@@ -13605,9 +13890,9 @@ def p_plot(X_series, Y_,
     if x_as_time==True and density_==False and invert_x==False and log_x==False and x_is_time_cofirmed==True:
 
         if time_format_ is None:
-            plot_format_mayor = mdates.DateFormatter(time_format_mod)
+            plot_format_mayor = mdates.DateFormatter(time_format_mod, tz='UTC')
         else:
-            plot_format_mayor = mdates.DateFormatter(time_format_)
+            plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
         ax.xaxis.set_major_formatter(plot_format_mayor)
     else:
         ax.ticklabel_format(useOffset=False)
@@ -13779,7 +14064,7 @@ def p_plot_arr(array_v, array_x, array_y,
 
 
     if time_format_ is not None:
-        plot_format_mayor = mdates.DateFormatter(time_format_)
+        plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
         ax.xaxis.set_major_formatter(plot_format_mayor)
         ax.format_coord = lambda x, y: 'x=%s, y=%g, v=%g' % (plot_format_mayor(x),
                                                              y,
@@ -14090,7 +14375,7 @@ def plot_precip_cumulative_colored(time_secs, precip_rate, precip_type_NWS, time
     else:
         ax.stackplot(time_seconds_to_days(temp_time_mean), cumulative_y.T, labels=labels_, colors=color_list,
                      zorder=zorder_)
-        plot_format_mayor = mdates.DateFormatter(time_format_)
+        plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
         ax.xaxis.set_major_formatter(plot_format_mayor)
 
 
@@ -14364,7 +14649,7 @@ def p_arr_vectorized_2(array_v, array_x, array_y,custom_y_range_tuple=None, cust
     if custom_x_range_tuple is not None: ax.set_xlim(custom_x_range_tuple)
 
     if time_format_ is not None:
-        plot_format_mayor = mdates.DateFormatter(time_format_)
+        plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
         ax.xaxis.set_major_formatter(plot_format_mayor)
 
     if figure_filename is not None:
@@ -14494,7 +14779,7 @@ def p_arr_vectorized_3(array_v, array_x, array_y,
 
 
     if time_format_ is not None:
-        plot_format_mayor = mdates.DateFormatter(time_format_)
+        plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
         ax.xaxis.set_major_formatter(plot_format_mayor)
         ax.format_coord = lambda x, y: 'x=%s, y=%g, v=%g' % (plot_format_mayor(x),
                                                              y,
@@ -14595,7 +14880,7 @@ def p_arr(A_, cmap_=default_cm, extend_x1_x2_y1_y2 =(0,1), figsize_= (10, 6), as
 
 
     if x_as_time:
-        plot_format_mayor = mdates.DateFormatter(time_format_)
+        plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
         ax.xaxis.set_major_formatter(plot_format_mayor)
 
     if x_header is not None: ax.set_xlabel(x_header)
@@ -14665,7 +14950,7 @@ def p_plot_colored_lines(x_array, y_array, color_array, tick_labels_list, fig_ax
     if x_header is not None: ax.set_xlabel(x_header)
     ax.grid(grid_)
     if time_format != '':
-        plot_format_mayor = mdates.DateFormatter(time_format)
+        plot_format_mayor = mdates.DateFormatter(time_format, tz='UTC')
         ax.xaxis.set_major_formatter(plot_format_mayor)
     # plt.xticks(rotation=45)
     if custom_y_range_tuple is not None: ax.set_ylim(custom_y_range_tuple)
@@ -14735,7 +15020,7 @@ def p_plot_colored_bars(x_array, y_array, color_list, color_list_unique, color_t
     #     cb2 = None
 
     if x_is_time_cofirmed:
-        plot_format_mayor = mdates.DateFormatter(time_format)
+        plot_format_mayor = mdates.DateFormatter(time_format, tz='UTC')
         ax.xaxis.set_major_formatter(plot_format_mayor)
 
     if y_header is not None: ax.set_ylabel(y_header)
@@ -15342,7 +15627,7 @@ def plot_3D_stacket_series_lines(x_z_series_list, y_series=None, y_as_time=False
         ax.set_zlabel(label_names_tuples_xyz[2])
 
     if y_as_time:
-        plot_format_mayor = mdates.DateFormatter(time_format)
+        plot_format_mayor = mdates.DateFormatter(time_format, tz='UTC')
         ax.yaxis.set_major_formatter(plot_format_mayor)
 
     if custom_x_range_tuple is not None: ax.set_xlim(custom_x_range_tuple)
@@ -15405,7 +15690,7 @@ def plot_shared_x_axis(X_Y_list, S_=5, x_header=None,y_header_list=None, t_line=
                                                              custom_y_ticks_start_end_step[2]))
 
         if x_as_time:
-            plot_format_mayor = mdates.DateFormatter(time_format_)
+            plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
             ax_list[series_number].xaxis.set_major_formatter(plot_format_mayor)
 
         if invert_y:
@@ -15480,7 +15765,7 @@ def plot_shared_y_axis(X_Y_list, S_=5, x_header_list=None, y_header=None, t_line
                                                              custom_y_ticks_start_end_step[2]))
 
         if x_as_time:
-            plot_format_mayor = mdates.DateFormatter(time_format_)
+            plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
             ax_list[series_number].xaxis.set_major_formatter(plot_format_mayor)
 
         if invert_y:
@@ -15541,7 +15826,7 @@ def scatter_custom_size(X_,Y_,S_, x_header=None,y_header=None, t_line=False, gri
         ax.yaxis.set_ticks(np.arange(custom_y_ticks_start_end_step[0], custom_y_ticks_start_end_step[1], custom_y_ticks_start_end_step[2]))
 
     if x_as_time:
-        plot_format_mayor = mdates.DateFormatter(time_format_)
+        plot_format_mayor = mdates.DateFormatter(time_format_, tz='UTC')
         ax.xaxis.set_major_formatter(plot_format_mayor)
 
     if save_fig:
@@ -15602,7 +15887,7 @@ def power_plot_with_error(X_, Y_, yerr_, Size_=5, c_='', x_header='',y_header=''
     plt.show()
 def plot_preview_x_as_time(header_,days_,values_):
 
-    plot_format_mayor = mdates.DateFormatter('%H:%M %d%b%y')
+    plot_format_mayor = mdates.DateFormatter('%H:%M %d%b%y', tz='UTC')
     fig, ax = plt.subplots()
     if len(values_.shape) > 1:
         for c_ in range(values_.shape[1]):
@@ -15614,7 +15899,7 @@ def plot_preview_x_as_time(header_,days_,values_):
 def plot_values_x_as_time(header_,values_,x_array,y_list,
                           legend_=False, plot_fmt_str0='%H:%M %d%b%y'):
     color_list = default_cm(np.linspace(0,1,len(y_list)))
-    plot_format_mayor = mdates.DateFormatter(plot_fmt_str0)
+    plot_format_mayor = mdates.DateFormatter(plot_fmt_str0, tz='UTC')
     fig, ax = plt.subplots()
     for c_,y_ in enumerate(y_list):
         color_ = color_list[c_]
