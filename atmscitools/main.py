@@ -8276,14 +8276,19 @@ def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
                 else:
                     dict_raw_lists[var_name].append(row_list[col_])
 
+    # create data quality mask
+    sensor_status_arr = np.array(dict_raw_lists['sensor_status'], dtype=int)
+    mask_ = np.zeros(sensor_status_arr.size, dtype=bool)
+    mask_[sensor_status_arr > 1] = True
+
     # reformat time
     time_arr = time_str_to_seconds(dict_raw_lists['datetime'], time_format_mod) # unix time
 
     # reshape spectrum data
     raw_spectrum_list = dict_raw_lists['raw_spectra']
-    spectrum_array = np.zeros((len(raw_spectrum_list), 32, 32), dtype=int)
+    spectrum_array = np.zeros((len(raw_spectrum_list), 32, 32), dtype=float)
     for row_ in range(len(raw_spectrum_list)):
-        spectrum_array[row_, :, :] = np.array(raw_spectrum_list[row_], dtype=int).reshape((32,32))
+        spectrum_array[row_, :, :] = np.array(raw_spectrum_list[row_], dtype=float).reshape((32,32))
 
     # create spectrum axis arrays
     size_scale = np.array([0.062,0.187,0.312,0.437,0.562,0.687,0.812,0.937,1.062,1.187,1.375,1.625,1.875,
@@ -8313,6 +8318,9 @@ def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
 
     # calculate PSD per size bin
     PSD_array = np.sum(particle_concentration_spectrum, axis=1)
+
+
+
 
 
     # start output dictionary
@@ -8379,6 +8387,7 @@ def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
     dict_['variables'][variable_name]['attributes'] = [
         ('units', 'particles per minute'),
         ('description', 'number of particles observed during the minute for each speed and size bin')]
+    spectrum_array[mask_] = np.nan  # mask bad data
     dict_['variables'][variable_name]['data'] = spectrum_array
 
     # ############################
@@ -8388,6 +8397,7 @@ def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
     dict_['variables'][variable_name]['attributes'] = [
         ('units', 'particles per m3'),
         ('description', 'concentration of particles observed during the minute for each speed and size bin')]
+    particle_concentration_spectrum[mask_] = np.nan  # mask bad data
     dict_['variables'][variable_name]['data'] = particle_concentration_spectrum
 
     # ############################
@@ -8397,6 +8407,7 @@ def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
     dict_['variables'][variable_name]['attributes'] = [
         ('units', 'particles per m3'),
         ('description', 'sum of concentration of particles observed during the minute')]
+    particle_concentration_total[mask_] = np.nan  # mask bad data
     dict_['variables'][variable_name]['data'] = particle_concentration_total
 
     # ############################
@@ -8406,7 +8417,9 @@ def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
     dict_['variables'][variable_name]['attributes'] = [
         ('units', 'mm hr-1'),
         ('description', 'rain intensity of the last minute in millimeters per hour')]
-    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['rain_intensity_mm/hr'], dtype=float)
+    rain_intensity = np.array(dict_raw_lists['rain_intensity_mm/hr'], dtype=float)
+    rain_intensity[mask_] = np.nan  # mask bad data
+    dict_['variables'][variable_name]['data'] = rain_intensity
 
     # ############################
     variable_name = 'rain_accumulated'
@@ -8415,7 +8428,9 @@ def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
     dict_['variables'][variable_name]['attributes'] = [
         ('units', 'mm'),
         ('description', 'rain accumulated since restart of instrument')]
-    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['rain_accumulated_mm'], dtype=float)
+    rain_accumulated = np.array(dict_raw_lists['rain_accumulated_mm'], dtype=float)
+    rain_accumulated[mask_] = np.nan  # mask bad data
+    dict_['variables'][variable_name]['data'] = rain_accumulated
 
     # ############################
     variable_name = 'weather_code_METAR'
@@ -8453,7 +8468,9 @@ def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
     dict_['variables'][variable_name]['attributes'] = [
         ('units', 'dBz'),
         ('description', 'radar reflectivity derived from the particle size distribution')]
-    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['radar_reflectivity_dBz'], dtype=float)
+    radar_reflectivity = np.array(dict_raw_lists['radar_reflectivity_dBz'], dtype=float)
+    radar_reflectivity[mask_] = np.nan  # mask bad data
+    dict_['variables'][variable_name]['data'] = radar_reflectivity
 
     # ############################
     variable_name = 'MOR_visibility'
@@ -8462,7 +8479,9 @@ def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
     dict_['variables'][variable_name]['attributes'] = [
         ('units', 'meters'),
         ('description', 'Meteorological Optical Range')]
-    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['MOR_visibility_m'], dtype=int)
+    MOR_visibility = np.array(dict_raw_lists['MOR_visibility_m'], dtype=float)
+    MOR_visibility[mask_] = np.nan  # mask bad data
+    dict_['variables'][variable_name]['data'] = MOR_visibility
 
     # ############################
     variable_name = 'number_of_particles_detected'
@@ -8471,7 +8490,9 @@ def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
     dict_['variables'][variable_name]['attributes'] = [
         ('units', 'counts per minute'),
         ('description', 'total number of particles detected in last minute')]
-    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['number_of_particles_detected'], dtype=int)
+    number_of_particles_detected = np.array(dict_raw_lists['number_of_particles_detected'], dtype=float)
+    number_of_particles_detected[mask_] = np.nan  # mask bad data
+    dict_['variables'][variable_name]['data'] = number_of_particles_detected
 
     # ############################
     variable_name = 'sensor_temperature'
@@ -8497,7 +8518,8 @@ def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
     dict_['variables'][variable_name]['dimensions'] = ('time',)
     dict_['variables'][variable_name]['attributes'] = [
         ('units', 'flag int'),
-        ('description', 'error flag regarding the status of the instrument, 0 means all good')]
+        ('description', 'error flag regarding the status of the instrument, 0 means all good, 1 means warning, '
+                        '2 means needs cleaning bad data, 3 means full error')]
     dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['sensor_status'], dtype=int)
 
     # ############################
@@ -8507,7 +8529,9 @@ def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
     dict_['variables'][variable_name]['attributes'] = [
         ('units', 'J m-2 h-1'),
         ('description', 'total kinetic energy of hydrometeors')]
-    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['kinetic_energy_J/m2h'], dtype=float)
+    kinetic_energy = np.array(dict_raw_lists['kinetic_energy_J/m2h'], dtype=float)
+    kinetic_energy[mask_] = np.nan  # mask bad data
+    dict_['variables'][variable_name]['data'] = kinetic_energy
 
     # ############################
     variable_name = 'snow_intensity'
@@ -8516,7 +8540,9 @@ def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
     dict_['variables'][variable_name]['attributes'] = [
         ('units', ' mm hr-1'),
         ('description', 'estimate of equivalent liquid volume of snow precipitation rate')]
-    dict_['variables'][variable_name]['data'] = np.array(dict_raw_lists['snow_intensity_mm/h'], dtype=float)
+    snow_intensity = np.array(dict_raw_lists['snow_intensity_mm/h'], dtype=float)
+    snow_intensity[mask_] = np.nan  # mask bad data
+    dict_['variables'][variable_name]['data'] = snow_intensity
 
     # ############################
     variable_name = 'PSD'
@@ -8525,6 +8551,7 @@ def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
     dict_['variables'][variable_name]['attributes'] = [
         ('units', 'particles per m3'),
         ('description', 'sum of concentration of particles at different speeds as a function of optical diameter.')]
+    PSD_array[mask_] = np.nan  # mask bad data
     dict_['variables'][variable_name]['data'] = PSD_array
 
 
