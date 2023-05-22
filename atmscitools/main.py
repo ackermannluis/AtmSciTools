@@ -328,6 +328,34 @@ def load_aus_topo():
     highres_topo = access_nc_sfc.variables['topog'][:].filled(np.nan)
     access_nc_sfc.close()
     aus_topo_loaded = True
+def return_aus_coastline():
+    aus_basemap_nc = nc.Dataset(AtmSciTools_path + '/aus_basemap.nc')
+    aus_coast_lon = aus_basemap_nc.variables['lon'][:].filled(np.nan)
+    aus_coast_lat = aus_basemap_nc.variables['lat'][:].filled(np.nan)
+    aus_basemap_nc.close()
+    return aus_coast_lon, aus_coast_lat
+def return_global_coastline():
+    glob_basemap_lat_nc = nc.Dataset(AtmSciTools_path + '/glob_basemap_lat.nc')
+    glob_coast_lat = glob_basemap_lat_nc.variables['lat'][:].filled(np.nan)
+    glob_basemap_lat_nc.close()
+    glob_basemap_lon_nc = nc.Dataset(AtmSciTools_path + '/glob_basemap_lon.nc')
+    glob_coast_lon = glob_basemap_lon_nc.variables['lon'][:].filled(np.nan)
+    glob_basemap_lon_nc.close()
+    return glob_coast_lat, glob_coast_lon
+def return_glob_topo():
+    topo_nc = nc.Dataset(AtmSciTools_path + '/topo_0_1degrees.nc')
+    topo_lat = topo_nc.variables['lat'][:].data
+    topo_lon = topo_nc.variables['lon'][:].data
+    topo_arr = topo_nc.variables['z'][:].data
+    topo_nc.close()
+    return topo_lat, topo_lon, topo_arr
+def return_aus_topo():
+    access_nc_sfc = nc.Dataset(AtmSciTools_path + '/topo_1km_australia.nc')
+    highres_lat = access_nc_sfc.variables['lat'][:].filled(np.nan)
+    highres_lon = access_nc_sfc.variables['lon'][:].filled(np.nan)
+    highres_topo = access_nc_sfc.variables['topog'][:].filled(np.nan)
+    access_nc_sfc.close()
+    return highres_lat, highres_lon, highres_topo
 
 # NCI - Gadi
 def gadi_get_job_id():
