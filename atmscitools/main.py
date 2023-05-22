@@ -162,18 +162,30 @@ time_format_date_inverse = '%d-%m-%Y'
 time_format_time = '%H:%M:%S'
 time_format_parsivel = '%Y%m%d%H%M'
 time_format_YMDHM = time_format_parsivel
+time_format_YMD = '%Y%m%d'
 time_format_parsivel_ = '%Y%m%d_%H%M'
 time_format_parsivel_seconds = '%Y%m%d%H%M%S'
 time_format_YMDHMS = time_format_parsivel_seconds
 time_str_formats = [
     time_format,
+    time_format_iso,
+    time_format_khan,
     time_format_mod,
     time_format_easy,
+    time_format_wrf_filename,
     time_format_twolines,
+    time_format_twolines_noYear_noMin_intMonth,
     time_format_twolines_noYear,
+    time_format_twolines_noYear_noMin,
     time_format_date,
+    time_format_date_inverse,
     time_format_time,
-    time_format_parsivel
+    time_format_parsivel,
+    time_format_YMDHM,
+    time_format_YMD,
+    time_format_parsivel_,
+    time_format_parsivel_seconds,
+    time_format_YMDHMS
 ]
 
 
