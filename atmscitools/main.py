@@ -357,6 +357,10 @@ def mesh_to_damages(MESH_mm, slope_, inflex_, max_y):
 
 
 # Misc
+def invert_dict(original_dict, inverted_dict):
+    inverted_dict = {}
+    for k, v in original_dict.items():
+        inverted_dict[v] = inverted_dict.get(v, []) + [k]
 def scientific_notation_stop_numpy():
     np.set_printoptions(suppress=True)
 def scientific_notation_start_numpy():
