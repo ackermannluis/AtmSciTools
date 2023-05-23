@@ -6131,7 +6131,7 @@ def radar_reshape_field_3d(field_, azimuth_, range_, sweep_size=360):
     return field_.reshape((int(azimuth_.shape[0] / sweep_size), sweep_size, range_.shape[0]))
 def plot_radar_field_ppi(radar_obj, field_name='reflectivity', elevation_angle=0.5,
                          x_range=(-150, 150), y_range=(-150, 150), n_colors=12,
-                         fig_ax=None, cbar_ax=None, cbar_orient=None):
+                         fig_ax=None, cbar_ax=None, cbar_orient='horizontal'):
 
     # find the closest elevation angle
     elevation_angle_closest = radar_obj.elevation['data'][np.argmin(np.abs(radar_obj.elevation['data'] -
