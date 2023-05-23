@@ -397,10 +397,35 @@ def mesh_to_damages(MESH_mm, slope_, inflex_, max_y):
 
 
 # Misc
+def no_nans(listOfArrays_or_2Darray, return_mask=False, return_2D_array=False):
+    # only coincidences
+    if type(listOfArrays_or_2Darray) == list:
+        array_2D = np.column_stack(listOfArrays_or_2Darray)
+    else:
+        array_2D = listOfArrays_or_2Darray
+
+    arr_1D = np.sum(array_2D, axis=1)
+    mask_ = ~np.isnan(arr_1D)
+    out_arr = array_2D[mask_]
+
+    if return_2D_array:
+        if return_mask:
+            return out_arr, mask_
+        else:
+            return out_arr
+    else:
+        out_list = []
+        for c_ in range(out_arr.shape[1]):
+            out_list.append(out_arr[:,c_])
+        if return_mask:
+            return out_list, mask_
+        else:
+            return out_list
 def invert_dict(original_dict, inverted_dict):
     inverted_dict = {}
     for k, v in original_dict.items():
         inverted_dict[v] = inverted_dict.get(v, []) + [k]
+    return inverted_dict
 def scientific_notation_stop_numpy():
     np.set_printoptions(suppress=True)
 def scientific_notation_start_numpy():
@@ -6104,6 +6129,60 @@ def radar_cartesian_m_to_degrees(distance_north_m, distance_east__m, radar_lat_l
     return distance_north_deg, distance_east_deg
 def radar_reshape_field_3d(field_, azimuth_, range_, sweep_size=360):
     return field_.reshape((int(azimuth_.shape[0] / sweep_size), sweep_size, range_.shape[0]))
+def plot_radar_field_ppi(radar_obj, field_name='reflectivity', elevation_angle=0.5,
+                         x_range=(-150, 150), y_range=(-150, 150), n_colors=12,
+                         fig_ax=None, cbar_ax=None, cbar_orient=None):
+
+    # find the closest elevation angle
+    elevation_angle_closest = radar_obj.elevation['data'][np.argmin(np.abs(radar_obj.elevation['data'] -
+                                                                           elevation_angle))]
+
+
+    o_ = radar_spherical_to_cartesian(radar_obj.azimuth['data'][radar_obj.elevation['data'] == elevation_angle_closest],
+                                      radar_obj.elevation['data'][radar_obj.elevation['data'] == elevation_angle_closest],
+                                      radar_obj.range['data'],
+                                      radar_alt=radar_obj.altitude['data'][0]
+                                      )
+    altitude_m, distance_north_m, distance_east__m = o_
+
+
+    o_ = p_plot_arr(radar_obj.fields[field_name]['data'][radar_obj.elevation['data'] == elevation_angle_closest],
+                    distance_east__m/1000,
+                    distance_north_m/1000,
+                    custom_x_range_tuple=x_range, custom_y_range_tuple=y_range,
+                    x_header='distance from radar (west-east, km)',
+                    y_header='distance from radar (south-north, km)',
+                    figsize_=(8,6),
+                    cbar_label=field_name,
+                    cmap_=cm.get_cmap('jet', n_colors),
+                    fig_ax=fig_ax, cbar_ax=cbar_ax, cbar_orient=cbar_orient,
+                    )
+    fig_adjust(o_[0], left=0.15)
+    return o_
+def get_radar_arr_nonans_from_radar_obj(radar_obj, field_list):
+    some_fields_missing = False
+    for field_req in field_list:
+        if field_req not in radar_obj.fields:
+            some_fields_missing = True
+
+    if some_fields_missing:
+        output_dict = {}
+        for field_name in field_list:
+            output_dict[field_name] = np.array([])
+        return output_dict
+
+    temp_list = []
+    for field_name in field_list:
+        temp_list.append(radar_obj.fields[field_name]['data'].filled(np.nan).flatten())
+
+    # remove nans
+    output_list = no_nans(temp_list)
+
+    output_dict = {}
+    for c_, field_name in enumerate(field_list):
+        output_dict[field_name] = output_list[c_]
+
+    return output_dict
 
 
 
