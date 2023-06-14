@@ -4235,23 +4235,69 @@ def download_HIM8_2000m(YYYYmmddHHMM_str, channel_number_str):
 
     print('downloading variable:', variable_name)
     return f_.variables[variable_name][0, :,:]
-def download_HIM8_AUS_truecolor_2000m(YYYYmmddHHMM_str):
-    H8_b = download_HIM8_AUS_2000m(YYYYmmddHHMM_str, '01')
-    H8_g = download_HIM8_AUS_2000m(YYYYmmddHHMM_str, '02')
-    H8_r = download_HIM8_AUS_2000m(YYYYmmddHHMM_str, '03')
+def download_HIM8(YYYYmmddHHMM_str, channel_number_str, print_=True,
+                  prefix_='https://dapds00.nci.org.au/thredds/dodsC/ra22/satellite-products/arc/obs/himawari-ahi/fldk/v1-0/'):
+
+    resolution_1000 = [1,2,4]
+    resolution_500 = [3]
+    channel_number_int = int(channel_number_str)
+
+    resolution_ = 2000
+    if channel_number_int in resolution_1000:
+        resolution_ = 1000
+    elif channel_number_int in resolution_500:
+        resolution_ = 500
+
+    year_ = YYYYmmddHHMM_str[:4]
+    month_ = YYYYmmddHHMM_str[4:6]
+    day_ = YYYYmmddHHMM_str[6:8]
+    hour_min = YYYYmmddHHMM_str[8:]
+
+    url_ = prefix_ + '{0}/{1}/{2}/{3}/{4}00-P1S-ABOM_OBS_B{5}-PRJ_GEOS141_{6}-HIMAWARI8-AHI.nc'.format(year_,
+                                                                                                       month_,
+                                                                                                       day_,
+                                                                                                       hour_min,
+                                                                                                       YYYYmmddHHMM_str,
+                                                                                                       channel_number_str,
+                                                                                                       resolution_)
+
+
+    if print_: print('downloading\n' + YYYYmmddHHMM_str + '\n' + channel_number_str + '\n' + url_)
+
+    f_ = nc.Dataset(url_)
+
+    variable_name = ''
+
+    for var_key in f_.variables.keys():
+        if len(var_key.split('channel')) > 1:
+            variable_name = var_key
+            break
+
+    rows_ = f_.variables[variable_name].shape[1]
+    rows_size = int(rows_ / 100)
+
+    array_list = []
+    for row_part in range(100):
+        p_progress_bar(row_part, 100)
+        array_list.append(f_.variables[variable_name][0,(row_part*rows_size):((row_part+1)*rows_size),:].filled(np.nan))
+
+    f_.close()
+    return np.row_stack(array_list)
+def download_HIM8_truecolor(YYYYmmddHHMM_str):
+    slope_ = 12
+    inflex_ = .2
+    max_ = 256
+
+    H8_r_500 = download_HIM8(YYYYmmddHHMM_str, '03')
+    H8_r = column_average_discrete_2D(row_average_discrete_2D(H8_r_500, 2), 2)
+    H8_g = download_HIM8(YYYYmmddHHMM_str, '02')
+    H8_b = download_HIM8(YYYYmmddHHMM_str, '01')
+
+
     img_ = np.zeros((H8_b.shape[0], H8_b.shape[1], 3), dtype='uint8')
-    img_[:, :, 0] = H8_r * 170
-    img_[:, :, 1] = H8_g * 170
-    img_[:, :, 2] = H8_b * 170
-    return img_
-def download_HIM8_truecolor_2000m(YYYYmmddHHMM_str):
-    H8_b = download_HIM8_2000m(YYYYmmddHHMM_str, '01')
-    H8_g = download_HIM8_2000m(YYYYmmddHHMM_str, '02')
-    H8_r = download_HIM8_2000m(YYYYmmddHHMM_str, '03')
-    img_ = np.zeros((H8_b.shape[0], H8_b.shape[1], 3), dtype='uint8')
-    img_[:, :, 0] = H8_r * 170
-    img_[:, :, 1] = H8_g * 170
-    img_[:, :, 2] = H8_b * 170
+    img_[:, :, 0] = sigmoid(H8_r, slope_, inflex_, max_)
+    img_[:, :, 1] = sigmoid(H8_g, slope_, inflex_, max_)
+    img_[:, :, 2] = sigmoid(H8_b, slope_, inflex_, max_)
     return img_
 def download_lat_lon_arrays_HIM8_500():
     url_ = 'http://dapds00.nci.org.au/thredds/dodsC/rr5/satellite/obs/himawari8/FLDK/ancillary/' \
@@ -16906,6 +16952,10 @@ def gaussian_func(x,a,x0,sigma):
 def double_gaussian_func(x, a_1, x0_1, sigma_1, a_2, x0_2, sigma_2):
     y_ = (a_1 * np.exp(-(x - x0_1)**2 / (2 * sigma_1**2))) + (a_2 * np.exp(-(x - x0_2)**2 / (2 * sigma_2**2)))
     return y_
+def sigmoid(x_, slope_, inflex_, max_y):
+    min_y = 1 / (1 + (e_constant ** (-slope_ * (0 - inflex_))))
+    sigmoid_ = (((1 / (1 + (e_constant ** (-slope_ * (x_ - inflex_))))) - min_y) / (1 - min_y)) * max_y
+    return sigmoid_
 
 def DSD_gamma_dist_1(D, N_o_star, U_o, D_o):
     N_D = N_o_star * \
