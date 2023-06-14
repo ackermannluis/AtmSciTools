@@ -4510,6 +4510,54 @@ def get_himawari8_2000m_NCI(YYYYmmddHHMM_str, channel_number, output_format='png
 
     else:
         print('File not available for time stamp:', YYYYmmddHHMM_str)
+def get_HIM8_NCI(YYYYmmddHHMM_str, channel_number_str,
+                 path_='/g/data/ra22/satellite-products/arc/obs/himawari-ahi/fldk/v1-0/'):
+
+    resolution_1000 = [1,2,4]
+    resolution_500 = [3]
+    channel_number_int = int(channel_number_str)
+
+    resolution_ = 2000
+    if channel_number_int in resolution_1000:
+        resolution_ = 1000
+    elif channel_number_int in resolution_500:
+        resolution_ = 500
+
+    year_ = YYYYmmddHHMM_str[:4]
+    month_ = YYYYmmddHHMM_str[4:6]
+    day_ = YYYYmmddHHMM_str[6:8]
+    hour_min = YYYYmmddHHMM_str[8:]
+
+    filename_ = path_ + '{0}/{1}/{2}/{3}/{4}00-P1S-ABOM_OBS_B{5}-PRJ_GEOS141_{6}-HIMAWARI8-AHI.nc'.format(
+        year_, month_, day_, hour_min, YYYYmmddHHMM_str, channel_number_str, resolution_)
+
+
+    with nc.Dataset(filename_) as file_:
+        variable_name = ''
+        for var_key in f_.variables.keys():
+            if len(var_key.split('channel')) > 1:
+                variable_name = var_key
+                break
+        output_array = file_.variables[variable_name][0,:,:].filled(np.nan)
+    return output_array
+def get_HIM8_truecolor_NCI(YYYYmmddHHMM_str):
+    slope_ = 12
+    inflex_ = .2
+    max_ = 256
+
+    H8_r_500 = get_HIM8_NCI(YYYYmmddHHMM_str, '03')
+    H8_r = column_average_discrete_2D(row_average_discrete_2D(H8_r_500, 2), 2)
+    H8_g = get_HIM8_NCI(YYYYmmddHHMM_str, '02')
+    H8_b = get_HIM8_NCI(YYYYmmddHHMM_str, '01')
+
+
+    img_ = np.zeros((H8_b.shape[0], H8_b.shape[1], 3), dtype='uint8')
+    img_[:, :, 0] = sigmoid(H8_r, slope_, inflex_, max_)
+    img_[:, :, 1] = sigmoid(H8_g, slope_, inflex_, max_)
+    img_[:, :, 2] = sigmoid(H8_b, slope_, inflex_, max_)
+    return img_
+
+
 
 
 # ERA5 and interim data
