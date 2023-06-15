@@ -4511,7 +4511,7 @@ def get_himawari8_2000m_NCI(YYYYmmddHHMM_str, channel_number, output_format='png
     else:
         print('File not available for time stamp:', YYYYmmddHHMM_str)
 def get_HIM8_NCI(YYYYmmddHHMM_str, channel_number_str,
-                 path_='/g/data/ra22/satellite-products/arc/obs/himawari-ahi/fldk/v1-0/'):
+                 path_='/g/data/ra22/satellite-products/arc/obs/himawari-ahi/fldk/v1.0/'):
 
     resolution_1000 = [1,2,4]
     resolution_500 = [3]
