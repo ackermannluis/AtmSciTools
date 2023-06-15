@@ -4510,8 +4510,9 @@ def get_himawari8_2000m_NCI(YYYYmmddHHMM_str, channel_number, output_format='png
 
     else:
         print('File not available for time stamp:', YYYYmmddHHMM_str)
-def get_HIM8_NCI(YYYYmmddHHMM_str, channel_number_str,
-                 path_='/g/data/ra22/satellite-products/arc/obs/himawari-ahi/fldk/v1.0/'):
+def get_HIM8_NCI(YYYYmmddHHMM_str, channel_number_str, minlat_minlon_maxlat_maxlon_tuple=None,
+                 path_='/g/data/ra22/satellite-products/arc/obs/himawari-ahi/fldk/v1.0/',
+                 return_latlon_arr=False):
 
     resolution_1000 = [1,2,4]
     resolution_500 = [3]
@@ -4531,32 +4532,77 @@ def get_HIM8_NCI(YYYYmmddHHMM_str, channel_number_str,
     filename_ = path_ + '{0}/{1}/{2}/{3}/{4}00-P1S-ABOM_OBS_B{5}-PRJ_GEOS141_{6}-HIMAWARI8-AHI.nc'.format(
         year_, month_, day_, hour_min, YYYYmmddHHMM_str, channel_number_str, resolution_)
 
+    if minlat_minlon_maxlat_maxlon_tuple is not None:
+        minlat_ = minlat_minlon_maxlat_maxlon_tuple[0]
+        minlon_ = minlat_minlon_maxlat_maxlon_tuple[1]
+        maxlat_ = minlat_minlon_maxlat_maxlon_tuple[2]
+        maxlon_ = minlat_minlon_maxlat_maxlon_tuple[3]
 
-    with nc.Dataset(filename_) as file_:
-        variable_name = ''
-        for var_key in file_.variables.keys():
-            if len(var_key.split('channel')) > 1:
-                variable_name = var_key
-                break
-        output_array = file_.variables[variable_name][0,:,:].filled(np.nan)
-    return output_array
-def get_HIM8_truecolor_NCI(YYYYmmddHHMM_str):
+
+        filename_latlon = path_ + 'ancillary/00000000000000-P1S-ABOM_GEOM_SENSOR-' \
+                                  'PRJ_GEOS141_{0}-HIMAWARI8-AHI.nc'.format(resolution_)
+
+        with nc.Dataset(filename_latlon) as file_:
+            shape_tuple = file_.variables['lat'].shape
+
+            mid_point_x = int(shape_tuple[1]/2)
+            mid_point_y = int(shape_tuple[2]/2)
+
+            lat_array = file_.variables['lat'][0,:,mid_point_x].filled(np.nan)
+            lon_array = file_.variables['lon'][0,mid_point_y,:].filled(np.nan)
+
+            row_1 = np.nanargmin(np.abs(lat_array - maxlat_))
+            row_2 = np.nanargmin(np.abs(lat_array - minlat_))
+            col_1 = np.nanargmin(np.abs(lon_array - minlon_))
+            col_2 = np.nanargmin(np.abs(lon_array - maxlon_))
+
+            if return_latlon_arr:
+                lat_array_2D = file_.variables['lat'][0,row_1:row_2,col_1:col_2].filled(np.nan)
+                lon_array_2D = file_.variables['lon'][0,row_1:row_2,col_1:col_2].filled(np.nan)
+
+        with nc.Dataset(filename_) as file_:
+            variable_name = ''
+            for var_key in file_.variables.keys():
+                if len(var_key.split('channel')) > 1:
+                    variable_name = var_key
+                    break
+            output_array = file_.variables[variable_name][0,row_1:row_2,col_1:col_2].filled(np.nan)
+
+
+    else:
+        with nc.Dataset(filename_) as file_:
+            variable_name = ''
+            for var_key in file_.variables.keys():
+                if len(var_key.split('channel')) > 1:
+                    variable_name = var_key
+                    break
+            output_array = file_.variables[variable_name][0,:,:].filled(np.nan)
+
+    if return_latlon_arr:
+        return output_array, lat_array_2D, lon_array_2D
+    else:
+        return output_array
+def get_HIM8_truecolor_NCI(YYYYmmddHHMM_str, minlat_minlon_maxlat_maxlon_tuple=None, return_latlon_arr=False):
     slope_ = 12
     inflex_ = .2
     max_ = 256
 
-    H8_r_500 = get_HIM8_NCI(YYYYmmddHHMM_str, '03')
+    H8_r_500 = get_HIM8_NCI(YYYYmmddHHMM_str, '03', minlat_minlon_maxlat_maxlon_tuple)
     H8_r = column_average_discrete_2D(row_average_discrete_2D(H8_r_500, 2), 2)
-    H8_g = get_HIM8_NCI(YYYYmmddHHMM_str, '02')
-    H8_b = get_HIM8_NCI(YYYYmmddHHMM_str, '01')
+    H8_g = get_HIM8_NCI(YYYYmmddHHMM_str, '02', minlat_minlon_maxlat_maxlon_tuple)
+    H8_b, lat_array_2D, lon_array_2D = get_HIM8_NCI(YYYYmmddHHMM_str, '01',
+                                                    minlat_minlon_maxlat_maxlon_tuple, return_latlon_arr=True)
 
 
     img_ = np.zeros((H8_b.shape[0], H8_b.shape[1], 3), dtype='uint8')
     img_[:, :, 0] = sigmoid(H8_r, slope_, inflex_, max_)
     img_[:, :, 1] = sigmoid(H8_g, slope_, inflex_, max_)
     img_[:, :, 2] = sigmoid(H8_b, slope_, inflex_, max_)
-    return img_
 
+    if return_latlon_arr:
+        return img_, lat_array_2D, lon_array_2D
+    else:
+        return img_
 
 
 
