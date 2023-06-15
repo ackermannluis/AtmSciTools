@@ -4593,6 +4593,23 @@ def get_HIM8_truecolor_NCI(YYYYmmddHHMM_str, minlat_minlon_maxlat_maxlon_tuple=N
     H8_b, lat_array_2D, lon_array_2D = get_HIM8_NCI(YYYYmmddHHMM_str, '01',
                                                     minlat_minlon_maxlat_maxlon_tuple, return_latlon_arr=True)
 
+    # trim if needed
+    shape_500 = H8_r.shape
+    shape_1000 = H8_g.shape
+    if shape_1000[0] > shape_500[0]:
+        H8_g = H8_g[1:, :]
+        H8_b = H8_b[1:, :]
+        lat_array_2D = lat_array_2D[1:, :]
+        lon_array_2D = lon_array_2D[1:, :]
+    if shape_1000[0] < shape_500[0]:
+        H8_r = H8_r[1:, :]
+    if shape_1000[1] > shape_500[1]:
+        H8_g = H8_g[:, 1:]
+        H8_b = H8_b[:, 1:]
+        lat_array_2D = lat_array_2D[:, 1:]
+        lon_array_2D = lon_array_2D[:, 1:]
+    if shape_1000[1] < shape_500[1]:
+        H8_r = H8_r[:, 1:]
 
     img_ = np.zeros((H8_b.shape[0], H8_b.shape[1], 3), dtype='uint8')
     img_[:, :, 0] = sigmoid(H8_r, slope_, inflex_, max_)
