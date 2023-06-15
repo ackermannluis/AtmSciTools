@@ -4534,7 +4534,7 @@ def get_HIM8_NCI(YYYYmmddHHMM_str, channel_number_str,
 
     with nc.Dataset(filename_) as file_:
         variable_name = ''
-        for var_key in f_.variables.keys():
+        for var_key in file_.variables.keys():
             if len(var_key.split('channel')) > 1:
                 variable_name = var_key
                 break
