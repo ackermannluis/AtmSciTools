@@ -397,6 +397,9 @@ def mesh_to_damages(MESH_mm, slope_, inflex_, max_y):
 
 
 # Misc
+def row_index_nearest(array_, value_):
+    row_ = np.argmin(np.abs(array_ - value_))
+    return row_
 def no_nans(listOfArrays_or_2Darray, return_mask=False, return_2D_array=False):
     # only coincidences
     if type(listOfArrays_or_2Darray) == list:
@@ -13365,9 +13368,9 @@ def combine_by_index(reference_index, var_index, var_values):
 
         return reindexed_var_values
 def time_seconds_to_days(time_in_seconds):
-    return mdates.epoch2num(time_in_seconds)
+    return time_in_seconds / 86400
 def time_days_to_seconds(time_in_days):
-    return mdates.num2epoch(time_in_days)
+    return time_in_days * 86400
 def time_str_to_seconds(time_str, time_format):
     # defining time arrays
     if isinstance(time_str, str):
