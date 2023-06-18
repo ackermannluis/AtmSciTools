@@ -13368,9 +13368,21 @@ def combine_by_index(reference_index, var_index, var_values):
 
         return reindexed_var_values
 def time_seconds_to_days(time_in_seconds):
-    return time_in_seconds / 86400
+    try:
+        # try array type first
+        time_days = time_in_seconds / 86400
+    except:
+        # must likely list
+        time_days = np.array(time_in_seconds) / 86400
+    return time_days
 def time_days_to_seconds(time_in_days):
-    return time_in_days * 86400
+    try:
+        # try array type first
+        time_secs = time_in_days * 86400
+    except:
+        # must likely list
+        time_secs = np.array(time_in_days) * 86400
+    return time_secs
 def time_str_to_seconds(time_str, time_format):
     # defining time arrays
     if isinstance(time_str, str):
