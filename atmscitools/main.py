@@ -6252,36 +6252,93 @@ def create_file_for_particle_trajectory_from_ACCESS(filename_, time_lat_lon_heig
 # Radar
 def radar_spherical_to_cartesian(azimuth_, elevation_, range_, radar_alt=0.):
     """
+    Converts spherical coordinates (azimuth, elevation, range) to Cartesian coordinates (altitude, distance_north,
+     distance_east) for a radar.
+
+    Args:
+        azimuth_ (ndarray): Array of azimuth angles in degrees.
+        elevation_ (ndarray): Array of elevation angles in degrees.
+        range_ (ndarray): Array of range values in meters.
+        radar_alt (float, optional): Radar altitude in meters. Defaults to 0.
+
+    Returns:
+        tuple: Tuple containing altitude array, northward distance array, and eastward distance array. In meters
 
     """
-    range_2d = np.zeros((azimuth_.shape[0], range_.shape[0]))
-    elevation_2d = np.zeros((azimuth_.shape[0], range_.shape[0]))
-    azimuth_2d = np.zeros((azimuth_.shape[0], range_.shape[0]))
-
-    for row_ in range(azimuth_.shape[0]):
-        range_2d[row_, :] = range_[:]
-    for column_ in range(range_.shape[0]):
-        elevation_2d[:, column_] = elevation_
-        azimuth_2d[:, column_] = azimuth_
-
-
     radius_earth = 6371000
-    elevation_2d_rad = np.deg2rad(elevation_2d)
-    azimuth_2d_rad = np.deg2rad(azimuth_2d)
+
+    # prepare input
+    elevation_rad = np.deg2rad(elevation_)
+    range_2d, elevation_rad_2d = np.meshgrid(range_, elevation_rad)
+
+    azimuth_1D_rad = np.deg2rad(azimuth_)
+    range_2d, azimuth_rad_2d = np.meshgrid(range_, azimuth_1D_rad)
 
 
+    altitude_m = radar_alt + ((range_2d * np.cos(elevation_rad_2d))**2 +
+                              (radius_earth + range_2d * np.sin(elevation_rad_2d))**2 )**0.5 - radius_earth
 
-    altitude_m = radar_alt + ( (range_2d * np.cos(elevation_2d_rad))**2 +
-                               (radius_earth + range_2d * np.sin(elevation_2d_rad))**2 )**0.5 - radius_earth
+    horizontal_dist_m = radius_earth * np.arctan((range_2d * np.cos(elevation_rad_2d) /
+                                                  ((range_2d * np.sin(elevation_rad_2d)) + radius_earth)))
 
-    horizontal_dist_m = radius_earth * np.arctan((range_2d * np.cos(elevation_2d_rad) /
-                                                  ((range_2d * np.sin(elevation_2d_rad)) + radius_earth)))
-
-
-    distance_north_m = horizontal_dist_m * np.cos(azimuth_2d_rad)
-    distance_east__m = horizontal_dist_m * np.sin(azimuth_2d_rad)
+    distance_north_m = horizontal_dist_m * np.cos(azimuth_rad_2d)
+    distance_east__m = horizontal_dist_m * np.sin(azimuth_rad_2d)
 
     return altitude_m, distance_north_m, distance_east__m
+def radar_spherical_to_cartesian_ppi(azimuth_, elevation_, range_, radar_alt=0.):
+    """
+    Converts spherical coordinates (azimuth, elevation, range) to Cartesian coordinates (altitude, distance_north,
+    distance_east) for a radar using a different approach that is faster but has a limitation.
+    This function only works for ppi scanning strategies (the radar antenna rotates in a horizontal plane at a fixed
+    elevation angle and for every different elevation it has the same azimuthal resolution)
+
+    Args:
+        azimuth_ (ndarray): Array of azimuth angles in degrees.
+        elevation_ (ndarray): Array of elevation angles in degrees.
+        range_ (ndarray): Array of range values in meters.
+        radar_alt (float, optional): Radar altitude in meters. Defaults to 0.
+
+    Returns:
+        tuple: Tuple containing altitude array, northward distance array, and eastward distance array. In meters
+
+    """
+    radius_earth = 6371000
+
+    # prepare input
+    elevation_unique = np.array(sorted(set(elevation_)))
+    elevation_unique_rad = np.deg2rad(elevation_unique)
+    range_2d, elevation_unique_rad2d = np.meshgrid(range_, elevation_unique_rad)
+
+    azimuth_unique = np.array(sorted(set(azimuth_)))
+    azimuth_size = azimuth_unique.shape[0]
+    azimuth_unique_rad = np.deg2rad(azimuth_unique)
+    azimuth_unique_rad_cos = np.cos(azimuth_unique_rad)
+    azimuth_unique_rad_sin = np.sin(azimuth_unique_rad)
+    _, azimuth_unique_rad_cos_2d = np.meshgrid(range_, azimuth_unique_rad_cos)
+    _, azimuth_unique_rad_sin_2d = np.meshgrid(range_, azimuth_unique_rad_sin)
+
+    altitude_m = radar_alt + ((range_2d * np.cos(elevation_unique_rad2d)) ** 2 +
+                              (radius_earth + range_2d * np.sin(elevation_unique_rad2d)) ** 2) ** 0.5 - radius_earth
+
+    horizontal_dist_m = radius_earth * np.arctan((range_2d * np.cos(elevation_unique_rad2d) /
+                                                  ((range_2d * np.sin(elevation_unique_rad2d)) + radius_earth)))
+
+
+    altitude_m_2D       = np.zeros((elevation_.shape[0], range_.shape[0]))
+    distance_north_m_2D = np.zeros((elevation_.shape[0], range_.shape[0]))
+    distance_east__m_2D = np.zeros((elevation_.shape[0], range_.shape[0]))
+
+
+    for elev_ in range(elevation_unique.shape[0]):
+        altitude_m_2D[(elev_*azimuth_size):((elev_+1)*azimuth_size), :] = altitude_m[elev_,:]
+
+        distance_north_m_2D[(elev_*azimuth_size):((elev_+1)*azimuth_size), :] = \
+            horizontal_dist_m[elev_, :] * azimuth_unique_rad_cos_2d
+
+        distance_east__m_2D[(elev_*azimuth_size):((elev_+1)*azimuth_size), :] = \
+            horizontal_dist_m[elev_, :] * azimuth_unique_rad_sin_2d
+
+    return altitude_m_2D, distance_north_m_2D, distance_east__m_2D
 def radar_cartesian_m_to_degrees(distance_north_m, distance_east__m, radar_lat_lon_tuple):
 
     deg_per_m_lat, deg_per_m_lon = degrees_per_meter(radar_lat_lon_tuple[0])
