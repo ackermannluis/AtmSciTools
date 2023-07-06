@@ -3578,7 +3578,11 @@ def make_circle_x_y_arrays(center_x, center_y, radius_, points_=360):
     x_ = radius_ * np.cos(theta) + center_x
     y_ = radius_ * np.sin(theta) + center_y
     return x_, y_
-
+def component_distance_array_lat_lon_degress_to_meters(lat_arr, lon_arr, point_lat, point_lon):
+    m_per_deg_lat, m_per_deg_lon = meter_per_degrees(np.nanmean(lat_arr))
+    lat_del_arr_m = (lat_arr - point_lat) * m_per_deg_lat
+    lon_del_arr_m = (lon_arr - point_lon) * m_per_deg_lon
+    return lon_del_arr_m, lat_del_arr_m
 
 # Data Loading
 def load_data_to_return_return(filename_):
