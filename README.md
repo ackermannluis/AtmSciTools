@@ -22,7 +22,7 @@ Alternatively you can simply run:
 `python -m pip install git+https://github.com/ackermannluis/AtmSciTools`
 
 
-or you can use git to check out the repository:
+or you can use git to download the repository to current folder on terminal by running:
 
 `git clone git@github.com:ackermannluis/AtmSciTools.git`
 
