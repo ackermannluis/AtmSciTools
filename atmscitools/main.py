@@ -2077,6 +2077,129 @@ def wrf_rename_files_fix_time_format(filename_original_list, original_character=
 
 
 # meteorology
+def specific_humidity_from_relative_humidity(RH_perc, P_hpa, T_K):
+    """
+    Calculate specific humidity from relative humidity, pressure, and temperature.
+
+    Parameters:
+        RH_perc (float): Relative humidity (in the range of 0 to 100).
+        P_hpa (float): Pressure (in hectaPascals).
+        T_K (float): Temperature (in Kelvin).
+
+    Returns:
+        float: Specific humidity (in kg/kg).
+    """
+
+    RH = RH_perc / 100
+    P = P_hpa * 100
+
+    # Specific gas constants for dry air and water vapor
+    R_d = 287.05  # J/(kg·K)
+    R_v = 461.5  # J/(kg·K)
+
+    # Calculate vapor pressure (p_v) in Pa
+    p_vs = 610.78 * 10 ** (7.5 * (T_K - 273.15) / (T_K - 273.15 + 237.3))
+    p_v = RH * p_vs
+
+    # Calculate partial pressure of dry air (p_a) in Pa
+    p_a = P - p_v
+
+    # Calculate mass of water vapor (m_v) in kg
+    m_v = (p_v / (R_v * T_K)) * (1 - (p_v / p_a))
+
+    # Calculate mass of dry air (m_a) in kg
+    m_a = p_a / (R_d * T_K)
+
+    # Calculate specific humidity (q) in kg/kg
+    q = m_v / (m_a + m_v)
+
+    return q
+def calculate_moist_Brunt_Vaisala_profile_V1(PR_array_hpa, T_array_K, RH_array_perc, Z_array_m):
+    """
+    calculates moist Brunt-Vaisala from WRF point output text files
+    following equation 36 from Durran and Klemp 1982
+    DOI: https://doi.org/10.1175/1520-0469(1982)039<2152:OTEOMO>2.0.CO;2
+    :param PR_array_hpa: levels pressure array
+    :param T_array_K: ambient temperature array
+    :param RH_array_perc: relative humidity array
+    :param Z_array_m: height array
+    :return:
+        N_2 [per second squared]
+    """
+
+    # calculate arrays
+    TH_array_k = calculate_potential_temperature(T_array_K, PR_array_hpa)
+    QR_array_kgkg = specific_humidity_from_relative_humidity(RH_array_perc, PR_array_hpa, T_array_K)
+
+    q_s = calculate_saturation_mixing_ratio_g_kg(PR_array_hpa, T_array_K) / 1000
+    e_ = gas_const_dry / gas_const_water
+
+    # get mid-points such that the arrays have the same shape
+    T_array_mid = series_half_points(T_array_K)
+    q_s_mid = series_half_points(q_s)
+
+    # gradients
+    d_ln_TH = np.diff(np.log(TH_array_k))
+    d_z     = np.diff(Z_array_m)
+    d_q_s   = np.diff(q_s)
+    d_q_w   = d_q_s + np.diff(QR_array_kgkg)
+
+    # Brunt - Vaisala
+    term_1_1 = 1 + (  latent_heat_v * q_s_mid / (gas_const_dry * T_array_mid)  )
+    term_1_2 = 1 + (  e_ * (latent_heat_v**2) * q_s_mid /
+                      (heat_capacity__Cp * gas_const_dry * (T_array_mid**2) )  )
+
+    term_2_1 = d_ln_TH / d_z
+    term_2_2 = latent_heat_v / (heat_capacity__Cp * T_array_mid)
+    term_2_3 = d_q_s / d_z
+
+    term_3 = d_q_w / d_z
+
+    N_2 = gravity_ * (  (term_1_1 / term_1_2) * (term_2_1 + ( term_2_2 * term_2_3) )  -  term_3  )
+
+    return N_2
+def calculate_moist_Brunt_Vaisala_profile_V2(PR_array_hpa, TH_array_k, QR_array_kgkg, Z_array_m):
+    """
+    calculates moist Brunt-Vaisala from WRF point output text files
+    following equation 36 from Durran and Klemp 1982
+    DOI: https://doi.org/10.1175/1520-0469(1982)039<2152:OTEOMO>2.0.CO;2
+    :param PR_array_hpa: levels pressure array
+    :param TH_array_k: potential temperature array
+    :param QR_array_kgkg: rain water mixing ratio array
+    :param Z_array_m: height array
+    :return:
+        N_2 [per second squared]
+    """
+
+    # calculate arrays
+    T_array = calculate_temperature_from_potential_temperature(TH_array_k, PR_array_hpa)
+    q_s = calculate_saturation_mixing_ratio_g_kg(PR_array_hpa, T_array) / 1000
+    e_ = gas_const_dry / gas_const_water
+
+    # get mid-points such that the arrays have the same shape
+    T_array_mid = series_half_points(T_array)
+    q_s_mid = series_half_points(q_s)
+
+    # gradients
+    d_ln_TH = np.diff(np.log(TH_array_k))
+    d_z     = np.diff(Z_array_m)
+    d_q_s   = np.diff(q_s)
+    d_q_w   = d_q_s + np.diff(QR_array_kgkg)
+
+    # Brunt - Vaisala
+    term_1_1 = 1 + (  latent_heat_v * q_s_mid / (gas_const_dry * T_array_mid)  )
+    term_1_2 = 1 + (  e_ * (latent_heat_v**2) * q_s_mid /
+                      (heat_capacity__Cp * gas_const_dry * (T_array_mid**2) )  )
+
+    term_2_1 = d_ln_TH / d_z
+    term_2_2 = latent_heat_v / (heat_capacity__Cp * T_array_mid)
+    term_2_3 = d_q_s / d_z
+
+    term_3 = d_q_w / d_z
+
+    N_2 = gravity_ * (  (term_1_1 / term_1_2) * (term_2_1 + ( term_2_2 * term_2_3) )  -  term_3  )
+
+    return N_2
 def calculate_saturation_vapor_pressure_wexler(T_array_K):
     """
     From Wexler taken from Flatau, P.J.; Walko, R.L.; Cotton, W.R. (1992):
