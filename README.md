@@ -2,13 +2,19 @@
 
 This toolkit provides a collection of tools for Atmospheric Science Research.
 
-### Dependencies
+### Main Dependencies
 - numpy
 - netCDF4
 - scipy
 - matplotlib
-- paramiko
 
+#### Minor Dependencies
+- xlrd
+- imageio
+- pyproj
+- Pillow
+- pdf2image
+- scp
 
 ### Install
 To install AtmSciTools, you can download and unpack the zip file, on the terminal navegate to the unzipped folder
