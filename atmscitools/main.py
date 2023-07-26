@@ -14161,7 +14161,7 @@ def create_video_animation_from_3D_array_pcolormesh(array_values, array_x, array
 # display / plotting
 def p_plot(X_series, Y_,
            S_=5, c_='', label_=None, zorder_=None,
-           x_header=None, y_header=None, t_line=False, grid_=False, cus_loc =None, cmap_=default_cm,
+           x_header=None, y_header=None, t_line=False, grid_=False, cus_loc =None, cmap_='jet',
            custom_y_range_tuple=None, custom_x_range_tuple=None, figsize_ = (10,6), save_fig=False, figure_filename='',
            custom_x_ticks_start_end_step=None, custom_y_ticks_start_end_step=None, extra_text='', title_str = '',
            time_format_=None, x_as_time=True, c_header=None, add_line=False, linewidth_=2, fig_ax=None,
@@ -14172,7 +14172,7 @@ def p_plot(X_series, Y_,
            font_size_axes_labels=14, font_size_title=16, font_size_legend=12, font_size_ticks=10, cbar_format='%.2f',
            t_line_text_color='black', vmin_=None, vmax_=None, y_ticks_on_right_side=False, cbar_orient='vertical',
            colorbar_tick_labels_list=None, add_coastlines=False, coastline_color='black',
-           y_err_arr=None, y_err_color='k', fit_function_p0=None):
+           y_err_arr=None, y_err_color='k', fit_function_p0=None, cbar_number_of_colors=None):
     """
     creates plot
     :param X_series: 1D array with values of x axis
@@ -14241,6 +14241,7 @@ def p_plot(X_series, Y_,
     :param y_err_arr: 1D array with error values for errorbars. If not none, error bars will be added
     :param y_err_color: color to be used for the error bars, default is black
     :param fit_function_p0: list with initial guess of fitting variables to be pased to curve_fit
+    :param cbar_number_of_colors: int with the number of colors to be used, if none, a continuous color bar is used
     :return: matplotlib figure object, matplotlib axis object, R2 in case a fitting is done otherwise none
     """
     change_font_size_figures(font_size_axes_labels, font_size_title, font_size_legend, font_size_ticks)
@@ -14287,7 +14288,7 @@ def p_plot(X_series, Y_,
         ax.grid(True)
     else:
         if density_:
-            ax = p_density_scatter(X_, Y_, s = S_, fig_ax=[fig, ax], cmap_=cmap_,
+            ax = p_density_scatter(X_, Y_, s = S_, fig_ax=[fig, ax], cmap_=cm.get_cmap(cmap_, cbar_number_of_colors),
                                    show_cbar=show_cbar, rasterized_=rasterized_)
         else:
             if c_=='':
@@ -14330,7 +14331,7 @@ def p_plot(X_series, Y_,
             else:
                 if vmin_ is None: vmin_ = np.nanmin(c_)
                 if vmax_ is None: vmax_ = np.nanmax(c_)
-                im = ax.scatter(X_, Y_, s=S_, lw=marker_lw,  c=c_, cmap=cmap_,
+                im = ax.scatter(X_, Y_, s=S_, lw=marker_lw,  c=c_, cmap=cm.get_cmap(cmap_, cbar_number_of_colors),
                                 marker=marker_, zorder=zorder_, vmin=vmin_, vmax=vmax_, alpha=alpha_)
 
                 if x_is_time_cofirmed:
@@ -14453,7 +14454,7 @@ def p_plot_arr(array_v, array_x, array_y,
                colorbar_tick_labels_list=None, show_x_ticks=True, show_y_ticks=True,extend_='neither',
                invert_y=False, invert_x=False, levels=None, text_box_str=None,text_box_loc=None,
                font_size_axes_labels=14, font_size_title=16, font_size_legend=12, font_size_ticks=10,
-               add_coastlines=False, coastline_color='black', zorder_=None):
+               add_coastlines=False, coastline_color='black', zorder_=None, cbar_number_of_colors=None):
     """
     plots an array in vector form (not imshow)
     :param array_v: 2d array with values to be shown as colors
@@ -14500,6 +14501,7 @@ def p_plot_arr(array_v, array_x, array_y,
     :param add_coastlines: if true adds coastlines (creates a map).
     :param coastline_color: color of the coastline.
     :param zorder_: integer that defines the order in which objects appear, larger numbers are on top of smaller
+    :param cbar_number_of_colors: int with the number of colors to be used, if none, a continuous color bar is used
     :return:
         fig: figure objects
         ax: axes objects
@@ -14539,13 +14541,16 @@ def p_plot_arr(array_v, array_x, array_y,
 
 
     if contour_:
-        surf_ = ax.contour(array_x, array_y, array_v, levels=levels, cmap=cmap_, vmin=vmin_, vmax=vmax_,
+        surf_ = ax.contour(array_x, array_y, array_v, levels=levels, cmap=cm.get_cmap(cmap_, cbar_number_of_colors),
+                           vmin=vmin_, vmax=vmax_,
                            extend=extend_, zorder=zorder_)
     elif contourF_:
-        surf_ = ax.contourf(array_x, array_y, array_v, levels=levels, cmap=cmap_, vmin=vmin_, vmax=vmax_,
+        surf_ = ax.contourf(array_x, array_y, array_v, levels=levels, cmap=cm.get_cmap(cmap_, cbar_number_of_colors),
+                            vmin=vmin_, vmax=vmax_,
                             extend=extend_, zorder=zorder_)
     else:
-        surf_ = ax.pcolormesh(array_x, array_y, array_v, cmap=cmap_, vmin=vmin_, vmax=vmax_, zorder=zorder_)
+        surf_ = ax.pcolormesh(array_x, array_y, array_v, cmap=cm.get_cmap(cmap_, cbar_number_of_colors),
+                              vmin=vmin_, vmax=vmax_, zorder=zorder_)
 
     if show_cbar:
         if cbar_ax is None:
