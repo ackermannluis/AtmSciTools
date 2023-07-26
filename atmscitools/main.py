@@ -14719,7 +14719,7 @@ def add_colorbar_to_ax(fig, ax, plot_image_or_scatter, format='%.2f', orientatio
     return cbar_
 def add_countour_to_ax(ax, x_, y_, arr_, countour_lines_values_list,
                        color_list=None, style_list=None, labels_=False,
-                       labels_font_size=8, filled_=False, zorder_=None):
+                       labels_font_size=8, filled_=False, zorder_=None, line_width=1):
     x_1, x_2, y_1, y_2 = get_ax_range(ax)
 
     if filled_:
@@ -14727,7 +14727,7 @@ def add_countour_to_ax(ax, x_, y_, arr_, countour_lines_values_list,
                                linestyles=style_list,zorder=zorder_)
     else:
         contours = ax.contour(x_, y_, arr_,countour_lines_values_list, colors=color_list,
-                              linestyles=style_list, zorder=zorder_)
+                              linestyles=style_list, zorder=zorder_, lw=line_width)
     if labels_:
         plt.rc('font', size=labels_font_size)  # controls default text sizes
         ax.clabel(contours, contours.levels, inline=True, fmt='%i')
@@ -14735,14 +14735,14 @@ def add_countour_to_ax(ax, x_, y_, arr_, countour_lines_values_list,
     ax.set_xlim((x_1, x_2))
     ax.set_ylim((y_1, y_2))
     return contours
-def add_coastline_aus(ax, color='black'):
+def add_coastline_aus(ax, color='black', line_width=1):
     if not aus_coastline_loaded: load_aus_coastline()
-    ax.plot(aus_coast_lon, aus_coast_lat, color)
-def add_coastline_glob(ax, color='black'):
+    ax.plot(aus_coast_lon, aus_coast_lat, color, lw=line_width)
+def add_coastline_glob(ax, color='black', line_width=1):
     if not glob_coastline_loaded: load_global_coastline()
-    ax.plot(glob_coast_lon, glob_coast_lat, color)
+    ax.plot(glob_coast_lon, glob_coast_lat, color, lw=line_width)
 def add_coastline_to_ax(ax, coastline_color='yellow', filled_=False,
-                        filled_ocean_color='aqua', filled_land_color='saddlebrown'):
+                        filled_ocean_color='aqua', filled_land_color='saddlebrown', line_width=1):
     x_1, x_2, y_1, y_2 = get_ax_range(ax)
     x_1 -= 1
     x_2 += 1
@@ -14760,7 +14760,7 @@ def add_coastline_to_ax(ax, coastline_color='yellow', filled_=False,
             add_countour_to_ax(ax, highres_lon[col_1:col_2], highres_lat[row_1:row_2],
                                highres_topo[row_1:row_2, col_1:col_2],
                                [-99999, 0, 9999], [filled_ocean_color, filled_land_color, filled_land_color],
-                               filled_=True, zorder_=0)
+                               filled_=True, zorder_=0, line_width=line_width)
         else:
             if not glob_topo_loaded: load_glob_topo()
             row_1 = time_to_row_sec(topo_lat, y_1)
@@ -14770,16 +14770,16 @@ def add_coastline_to_ax(ax, coastline_color='yellow', filled_=False,
             add_countour_to_ax(ax, topo_lon[col_1:col_2], topo_lat[row_1:row_2],
                                topo_arr[row_1:row_2, col_1:col_2],
                                [-99999, 0, 9999], [filled_ocean_color, filled_land_color, filled_land_color],
-                               filled_=True, zorder_=0)
+                               filled_=True, zorder_=0, line_width=line_width)
     else:
         if x_1 > 100 and x_2 < 170 and y_1 > -50 and y_2 < -3:
             x_1, x_2, y_1, y_2 = get_ax_range(ax)
-            add_coastline_aus(ax, color=coastline_color)
+            add_coastline_aus(ax, color=coastline_color, line_width=line_width)
             ax.set_xlim(x_1, x_2)
             ax.set_ylim(y_1, y_2)
         else:
             x_1, x_2, y_1, y_2 = get_ax_range(ax)
-            add_coastline_glob(ax, color=coastline_color)
+            add_coastline_glob(ax, color=coastline_color, line_width=line_width)
             ax.set_xlim(x_1, x_2)
             ax.set_ylim(y_1, y_2)
 
