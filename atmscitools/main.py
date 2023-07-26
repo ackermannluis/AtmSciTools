@@ -14269,6 +14269,8 @@ def p_plot(X_series, Y_,
         X_ = X_series
         x_is_time_cofirmed = False
 
+    if type(cmap_) == str:
+        cmap_ = cm.get_cmap(cmap_, cbar_number_of_colors)
 
     if skewt:
         # Plot the data using normal plotting functions, in this case using
@@ -14288,7 +14290,7 @@ def p_plot(X_series, Y_,
         ax.grid(True)
     else:
         if density_:
-            ax = p_density_scatter(X_, Y_, s = S_, fig_ax=[fig, ax], cmap_=cm.get_cmap(cmap_, cbar_number_of_colors),
+            ax = p_density_scatter(X_, Y_, s = S_, fig_ax=[fig, ax], cmap_=cmap_,
                                    show_cbar=show_cbar, rasterized_=rasterized_)
         else:
             if c_=='':
@@ -14331,7 +14333,7 @@ def p_plot(X_series, Y_,
             else:
                 if vmin_ is None: vmin_ = np.nanmin(c_)
                 if vmax_ is None: vmax_ = np.nanmax(c_)
-                im = ax.scatter(X_, Y_, s=S_, lw=marker_lw,  c=c_, cmap=cm.get_cmap(cmap_, cbar_number_of_colors),
+                im = ax.scatter(X_, Y_, s=S_, lw=marker_lw,  c=c_, cmap=cmap_,
                                 marker=marker_, zorder=zorder_, vmin=vmin_, vmax=vmax_, alpha=alpha_)
 
                 if x_is_time_cofirmed:
@@ -14539,17 +14541,19 @@ def p_plot_arr(array_v, array_x, array_y,
     if time_format_ is not None:
         array_x = convert_any_time_type_to_days(array_x_reshaped)
 
+    if type(cmap_) == str:
+        cmap_ = cm.get_cmap(cmap_, cbar_number_of_colors)
 
     if contour_:
-        surf_ = ax.contour(array_x, array_y, array_v, levels=levels, cmap=cm.get_cmap(cmap_, cbar_number_of_colors),
+        surf_ = ax.contour(array_x, array_y, array_v, levels=levels, cmap=cmap_,
                            vmin=vmin_, vmax=vmax_,
                            extend=extend_, zorder=zorder_)
     elif contourF_:
-        surf_ = ax.contourf(array_x, array_y, array_v, levels=levels, cmap=cm.get_cmap(cmap_, cbar_number_of_colors),
+        surf_ = ax.contourf(array_x, array_y, array_v, levels=levels, cmap=cmap_,
                             vmin=vmin_, vmax=vmax_,
                             extend=extend_, zorder=zorder_)
     else:
-        surf_ = ax.pcolormesh(array_x, array_y, array_v, cmap=cm.get_cmap(cmap_, cbar_number_of_colors),
+        surf_ = ax.pcolormesh(array_x, array_y, array_v, cmap=cmap_,
                               vmin=vmin_, vmax=vmax_, zorder=zorder_)
 
     if show_cbar:
