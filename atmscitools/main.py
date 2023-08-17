@@ -397,6 +397,11 @@ def mesh_to_damages(MESH_mm, slope_, inflex_, max_y):
 
 
 # Misc
+def number_of_digits_in_integer(number_or_array):
+    if type(number_or_array) == int:
+        return int(np.array(np.floor(np.log10(number_or_array)) + 1, dtype=int))
+    else:
+        return np.array(np.floor(np.log10(number_or_array)) + 1, dtype=int)
 def row_index_nearest(array_, value_):
     row_ = np.argmin(np.abs(array_ - value_))
     return row_
