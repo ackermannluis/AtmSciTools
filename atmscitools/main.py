@@ -6578,7 +6578,7 @@ def radar_reshape_field_3d(field_, azimuth_, range_, sweep_size=360):
     return field_.reshape((int(azimuth_.shape[0] / sweep_size), sweep_size, range_.shape[0]))
 def plot_radar_field_ppi(radar_obj, field_name='reflectivity', elevation_angle=0.5, x_range=(-150, 150),
                          y_range=(-150, 150), n_colors=12, add_coastline=False, coastline_color='black',
-                         fig_ax=None, cbar_ax=None, cbar_orient='horizontal', vmin_=None, vmax_=None):
+                         fig_ax=None, cbar_ax=None, cbar_orient='horizontal', vmin_=None, vmax_=None, figsize_=(8,8)):
     """
     Plot a radar field in a Plan Position Indicator (PPI) format.
 
@@ -6621,10 +6621,10 @@ def plot_radar_field_ppi(radar_obj, field_name='reflectivity', elevation_angle=0
         o_ = p_plot_arr(radar_obj.fields[field_name]['data'][radar_obj.elevation['data'] == elevation_angle_closest],
                         lon_ppi,
                         lat_ppi,
-                        custom_x_range_tuple=x_range, custom_y_range_tuple=y_range,
+                        # custom_x_range_tuple=x_range, custom_y_range_tuple=y_range,
                         x_header='longitude',
                         y_header='latitude',
-                        figsize_=(8, 6),
+                        figsize_=figsize_,
                         cbar_label=field_name,
                         cmap_=cm.get_cmap('jet', n_colors),
                         add_coastlines=add_coastline, coastline_color=coastline_color,
@@ -6639,7 +6639,7 @@ def plot_radar_field_ppi(radar_obj, field_name='reflectivity', elevation_angle=0
                         custom_x_range_tuple=x_range, custom_y_range_tuple=y_range,
                         x_header='distance from radar (west-east, km)',
                         y_header='distance from radar (south-north, km)',
-                        figsize_=(8,6),
+                        figsize_=figsize_,
                         cbar_label=field_name,
                         cmap_=cm.get_cmap('jet', n_colors),
                         fig_ax=fig_ax, cbar_ax=cbar_ax, cbar_orient=cbar_orient,
