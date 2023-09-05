@@ -1148,11 +1148,96 @@ def get_ax_range(ax):
     y_1 = ax.axis()[2]
     y_2 = ax.axis()[3]
     return x_1, x_2, y_1, y_2
-def interpolate_1d(x, xp, fp):
+def interpolate_1d(x, xp, fp, left_=None, right_=None):
     xp_fp_ascending = array_2D_sort_ascending_by_column(np.column_stack((xp, fp)))
     xp_ascending = xp_fp_ascending[:,0]
     fp_ascending = xp_fp_ascending[:,1]
-    return np.interp(x, xp_ascending, fp_ascending)
+    return np.interp(x, xp_ascending, fp_ascending, left=left_, right=right_)
+def interpolate_contiguous_or_closest(x, xp, fp, sort_ascending=True, left_=np.nan, right_=np.nan):
+    """
+    Perform one-dimensional linear interpolation for monotonically increasing sample points.
+
+    This function returns a one-dimensional piecewise linear interpolant to a function
+    with given discrete data points (`xp`, `fp`), evaluated at `x`. It also handles cases
+    where there are gaps (represented by NaNs) in the data, interpolating or setting values
+    based on the closest valid points.
+
+    Parameters:
+    ----------
+    :param x: ndarray
+        The x-coordinates at which to evaluate the interpolated values.
+
+    :param xp: 1-D sequence of floats
+        The x-coordinates of the data points, must be increasing if argument
+        `period` is not specified. Otherwise, `xp` is internally sorted after
+        normalizing the periodic boundaries with `xp = xp % period`.
+
+    :param fp: 1-D sequence of float or complex
+        The y-coordinates of the data points, same length as `xp`.
+
+    :param sort_ascending: bool, optional
+        If True, the data will be sorted before interpolation. Default is True.
+
+    :param left_: optional float or complex corresponding to fp
+        Value to return for `x < xp[0]`, default is `fp[0]`.
+
+    :param right_: optional float or complex corresponding to fp
+        Value to return for `x > xp[-1]`, default is `fp[-1]`.
+
+    Returns:
+    ----------
+    :return: ndarray
+        The interpolated values at the specified `x` coordinates.
+
+    Example:
+    ----------
+    >> x = np.array([0, 1, 2, 4, 5, 7, 8])
+    >> xp = np.array([0, 2, 4, 5, 7, 8])
+    >> fp = np.array([0, 1, np.nan, 2, 3, np.nan])
+    >> interpolate_contiguous_or_closest(x, xp, fp)
+    array([0., 1., 1.5, 2., 2.5, 3., 3.])
+
+    """
+
+    if sort_ascending:
+        xp_fp_ascending = array_2D_sort_ascending_by_column(np.column_stack((xp, fp)))
+        xp_ascending = xp_fp_ascending[:, 0]
+        fp_ascending = xp_fp_ascending[:, 1]
+    else:
+        xp_ascending = xp
+        fp_ascending = fp
+
+    interpolated_ = np.interp(x, xp_ascending, fp_ascending, left=left_, right=right_)
+
+    valid_indices = ~np.isnan(fp_ascending)
+
+    valid_indeces_strides = sliding_window_view(valid_indices, (3,), (1,))
+    valid_indeces_strides_sum = np.sum(valid_indeces_strides, axis=1)
+    valid_indeces_strides_flag = (valid_indeces_strides_sum == 1) * (valid_indeces_strides[:, 1] == 1)
+
+    if valid_indeces_strides[0, 0] == 1 and ~valid_indeces_strides[0, 1]:
+        closest_end_index = np.argmin(np.abs(x - xp_ascending[0]))
+        if closest_end_index == 0 or closest_end_index == interpolated_.shape[0] - 1:
+            delta_ = x[1] - x[0]
+            if np.abs(x[closest_end_index] - xp_ascending[-1]) <= delta_:
+                interpolated_[closest_end_index] = fp_ascending[0]
+        else:
+            interpolated_[closest_end_index] = fp_ascending[0]
+
+    if valid_indeces_strides[-1, 2] == 1 and ~valid_indeces_strides[-1, 1]:
+        closest_end_index = np.argmin(np.abs(x - xp_ascending[-1]))
+        if closest_end_index == 0 or closest_end_index == interpolated_.shape[0] - 1:
+            delta_ = x[-1] - x[-2]
+            if np.abs(x[closest_end_index] - xp_ascending[-1]) <= delta_:
+                interpolated_[closest_end_index] = fp_ascending[-1]
+        else:
+            interpolated_[closest_end_index] = fp_ascending[-1]
+
+    for i_, flag_ in enumerate(valid_indeces_strides_flag):
+        if flag_:
+            interpolated_[np.argmin(np.abs(x - xp_ascending[i_ + 1]))] = fp_ascending[i_ + 1]
+
+    return interpolated_
 def list_duplicates(seq):
     tally = defaultdict(list)
     for i,item in enumerate(seq):
@@ -1443,6 +1528,16 @@ def pdf_convert_pages_to_images(pdf_filename, pdi=500):
         page_image.save(page_filename)
 def raise_error(text_):
     raise ValueError(text_)
+def orthogonal_index_to_flat(x_index, y_index, total_number_of_columns):
+    if x_index.shape != y_index.shape:
+        raise_error('shapes of indexes are not the same')
+    if x_index.max() > total_number_of_columns:
+        raise_error('x index array has values larger than the defined total number of columns')
+
+    return np.array(x_index + (y_index * total_number_of_columns), dtype=int)
+def normalize_prescribed_min_max(arr_, min_, max_):
+    return (arr_ - min_) / (max_ - min_)
+
 
 # WRF
 def get_WRF_domain_periometer_only(output_filename):
@@ -6481,10 +6576,31 @@ def radar_cartesian_m_to_degrees(distance_north_m, distance_east__m, radar_lat_l
     return distance_north_deg, distance_east_deg
 def radar_reshape_field_3d(field_, azimuth_, range_, sweep_size=360):
     return field_.reshape((int(azimuth_.shape[0] / sweep_size), sweep_size, range_.shape[0]))
-def plot_radar_field_ppi(radar_obj, field_name='reflectivity', elevation_angle=0.5,
-                         x_range=(-150, 150), y_range=(-150, 150), n_colors=12,
+def plot_radar_field_ppi(radar_obj, field_name='reflectivity', elevation_angle=0.5, x_range=(-150, 150),
+                         y_range=(-150, 150), n_colors=12, add_coastline=False, coastline_color='black',
                          fig_ax=None, cbar_ax=None, cbar_orient='horizontal', vmin_=None, vmax_=None):
+    """
+    Plot a radar field in a Plan Position Indicator (PPI) format.
 
+    This function generates a PPI plot of a specified radar field at a given elevation angle.
+
+    :param radar_obj: (dict) Py-ART radar object containing radar data.
+    :param field_name: (str, optional) Name of the radar field to plot. Default is 'reflectivity'.
+    :param elevation_angle: (float, optional) Desired elevation angle for the PPI plot. Default is 0.5 degrees.
+    :param x_range: (tuple, optional) Custom x-axis range for the plot. Default is (-150, 150).
+    :param y_range: (tuple, optional) Custom y-axis range for the plot. Default is (-150, 150).
+    :param n_colors: (int, optional) Number of color levels in the colormap. Default is 12.
+    :param add_coastline: (bool, optional) Whether to add a coastline to the plot. Default is False.
+    :param coastline_color: (str, optional) Color of the coastline (if added). Default is 'black'.
+    :param fig_ax: (tuple, optional) Tuple of matplotlib figure and axis for custom plot configuration.
+    :param cbar_ax: (tuple, optional) Tuple of matplotlib figure and axis for custom colorbar configuration.
+    :param cbar_orient: (str, optional) Orientation of the colorbar ('horizontal' or 'vertical'). Default is 'horizontal'.
+    :param vmin_: (float, optional) Minimum value for the color scale. Default is None (automatic).
+    :param vmax_: (float, optional) Maximum value for the color scale. Default is None (automatic).
+
+    :return:
+        o_: (tuple) Tuple containing the figure, axis, and colorbar instances.
+    """
     # find the closest elevation angle
     elevation_angle_closest = radar_obj.elevation['data'][np.argmin(np.abs(radar_obj.elevation['data'] -
                                                                            elevation_angle))]
@@ -6497,20 +6613,39 @@ def plot_radar_field_ppi(radar_obj, field_name='reflectivity', elevation_angle=0
                                       )
     altitude_m, distance_north_m, distance_east__m = o_
 
+    if add_coastline:
+        deg_per_m_lat, deg_per_m_lon = degrees_per_meter(radar_obj.latitude['data'][0])
+        lat_ppi = deg_per_m_lat * distance_north_m + radar_obj.latitude['data'][0]
+        lon_ppi = deg_per_m_lon * distance_east__m + radar_obj.longitude['data'][0]
 
-    o_ = p_plot_arr(radar_obj.fields[field_name]['data'][radar_obj.elevation['data'] == elevation_angle_closest],
-                    distance_east__m/1000,
-                    distance_north_m/1000,
-                    custom_x_range_tuple=x_range, custom_y_range_tuple=y_range,
-                    x_header='distance from radar (west-east, km)',
-                    y_header='distance from radar (south-north, km)',
-                    figsize_=(8,6),
-                    cbar_label=field_name,
-                    cmap_=cm.get_cmap('jet', n_colors),
-                    fig_ax=fig_ax, cbar_ax=cbar_ax, cbar_orient=cbar_orient,
-                    vmin_=vmin_, vmax_=vmax_,
-                    )
-    fig_adjust(o_[0], left=0.15)
+        o_ = p_plot_arr(radar_obj.fields[field_name]['data'][radar_obj.elevation['data'] == elevation_angle_closest],
+                        lon_ppi,
+                        lat_ppi,
+                        custom_x_range_tuple=x_range, custom_y_range_tuple=y_range,
+                        x_header='longitude',
+                        y_header='latitude',
+                        figsize_=(8, 6),
+                        cbar_label=field_name,
+                        cmap_=cm.get_cmap('jet', n_colors),
+                        add_coastlines=add_coastline, coastline_color=coastline_color,
+                        fig_ax=fig_ax, cbar_ax=cbar_ax, cbar_orient=cbar_orient,
+                        vmin_=vmin_, vmax_=vmax_,
+                        )
+        fig_adjust(o_[0], left=0.15)
+    else:
+        o_ = p_plot_arr(radar_obj.fields[field_name]['data'][radar_obj.elevation['data'] == elevation_angle_closest],
+                        distance_east__m/1000,
+                        distance_north_m/1000,
+                        custom_x_range_tuple=x_range, custom_y_range_tuple=y_range,
+                        x_header='distance from radar (west-east, km)',
+                        y_header='distance from radar (south-north, km)',
+                        figsize_=(8,6),
+                        cbar_label=field_name,
+                        cmap_=cm.get_cmap('jet', n_colors),
+                        fig_ax=fig_ax, cbar_ax=cbar_ax, cbar_orient=cbar_orient,
+                        vmin_=vmin_, vmax_=vmax_,
+                        )
+        fig_adjust(o_[0], left=0.15)
     return o_
 def get_radar_arr_nonans_from_radar_obj(radar_obj, field_list):
     some_fields_missing = False
@@ -6536,7 +6671,328 @@ def get_radar_arr_nonans_from_radar_obj(radar_obj, field_list):
         output_dict[field_name] = output_list[c_]
 
     return output_dict
+def grid_radar_data_visually(radar_obj, variable_to_grid_list,
+                             grid_horizontal_size_m=150000, grid_horizontal_resolution_m=1000,
+                             grid_vertical_size_m=20000, grid_vertical_resolution_m=500,
+                             ray_angular_width=0.5, ray_gate_width=125, edge_threshold=.6, verbose_=False):
+    """
+    This function is designed for gridding radar ppi data into a cartesian grid format.
+    It takes a pyart radar object (radar_obj) and a list of variables (variable_to_grid_list) to be gridded.
+    The data is gridded horizontally by using matplolib's pcolormesh and retrieving the image render orthogonal
+    grid and then vertically interpolating these into the final 3D grid.
 
+    :param radar_obj: (dict) A pyart radar object containing data to be gridded.
+    :param variable_to_grid_list: (list) List of variable names to be gridded.
+    :param grid_horizontal_size_m: (float, optional) Horizontal size of the grid in meters.
+    :param grid_horizontal_resolution_m: (float, optional) Horizontal resolution of the grid in meters.
+    :param grid_vertical_size_m: (float, optional) Vertical size of the grid in meters.
+    :param grid_vertical_resolution_m: (float, optional) Vertical resolution of the grid in meters.
+    :param ray_angular_width: (float, optional) Angular width of radar rays in degrees.
+    :param ray_gate_width: (float, optional) Gate width of radar rays in meters.
+    :param edge_threshold: (float, optional) Threshold value for masking edges.
+    :param verbose_: (bool, optional) If True, display progress information. Default is False.
+
+    :return:
+        gridded_variables_dict: (dict) Dictionary containing gridded variables.
+        X_: (ndarray) Array of x-coordinates for the grid.
+        Y_: (ndarray) Array of y-coordinates for the grid.
+        Z_: (ndarray) Array of z-coordinates for the grid.
+        grid_lat: (ndarray) Array of latitude values for the grid.
+        grid_lon: (ndarray) Array of longitude values for the grid.
+    """
+
+    # setup
+    new_grid_lenght = int(grid_horizontal_size_m / grid_horizontal_resolution_m) * 2 + 1
+    fig_size = (new_grid_lenght * 2 / 100, new_grid_lenght * 2 / 100)
+    downscale_factor = 2  # e.g., from 1000x1000 to 333x333 (approximately)
+    new_shape = (new_grid_lenght, new_grid_lenght)
+
+    X_ = np.arange(-grid_horizontal_size_m, grid_horizontal_size_m+1, grid_horizontal_resolution_m)
+    Y_ = np.arange(-grid_horizontal_size_m, grid_horizontal_size_m+1, grid_horizontal_resolution_m)
+    Z_ = np.arange(0, grid_vertical_size_m+1, grid_vertical_resolution_m)
+    deg_per_m_lat, deg_per_m_lon = degrees_per_meter(radar_obj.latitude['data'][0])
+    grid_lat = deg_per_m_lat * Y_ + radar_obj.latitude['data'][0]
+    grid_lon = deg_per_m_lon * X_ + radar_obj.longitude['data'][0]
+
+    # get unique elevations
+    elevation_set = list(sorted(set(radar_obj.elevation['data'])))
+
+    # initialize intermediate output arrays
+    altitude_by_elev_array = np.zeros((X_.shape[0], Y_.shape[0], len(elevation_set)))
+    values_by_elev_dict = {}
+    for var_name in variable_to_grid_list:
+        values_by_elev_dict[var_name] = np.zeros((X_.shape[0], Y_.shape[0], len(elevation_set)))
+
+    # grid per elevation angle to intermediate arrays
+    for i_, elevation_ in enumerate(elevation_set):
+        if verbose_: print('gridding elevation {0}'.format(elevation_))
+
+        # binding boxes for azimuth and range
+        azimuth_ = radar_obj.azimuth['data'][radar_obj.elevation['data'] == elevation_]
+        azimuth_bnd = np.zeros(azimuth_.shape[0] + 1)
+        azimuth_bnd[:-1] = azimuth_ - ray_angular_width
+        azimuth_bnd[-1] = azimuth_[-1] + ray_angular_width
+        range_ = radar_obj.range['data']
+        range_bnd = np.zeros(range_.shape[0] + 1)
+        range_bnd[:-1] = range_ - ray_gate_width
+        range_bnd[-1] = range_[-1] + ray_gate_width
+
+        # get dimensions in orthogonal scale
+        o_ = radar_spherical_to_cartesian(azimuth_bnd, np.zeros(azimuth_bnd.shape[0])+elevation_, range_bnd,
+                                              radar_alt=radar_obj.altitude['data'][0])
+        altitude_m, distance_north_m, distance_east__m = o_
+
+        # grid altitude
+        # normalize array
+        vmin_ = np.min(altitude_m)
+        vmax_ = np.max(altitude_m)
+        array_norm_2D = (altitude_m - vmin_) / (vmax_ - vmin_)
+        array_norm = np.zeros((altitude_m.shape[0], altitude_m.shape[1], 3), dtype='uint8')
+        array_norm[:,:,0] = array_norm_2D * 255
+        array_norm[:,:,1] = array_norm_2D * 255
+        array_norm[:,:,2] = array_norm_2D * 255
+        # plot
+        fig, ax = create_fig_ax(1, 1, figsize=fig_size)
+        ax.set_facecolor('black')
+        fig_adjust(fig, 0, 1, 0, 1)
+        mesh_ = ax.pcolormesh(distance_east__m, distance_north_m, array_norm)
+        plt.axis('auto')
+        ax.set_xlim((-grid_horizontal_size_m, grid_horizontal_size_m))
+        ax.set_ylim((-grid_horizontal_size_m, grid_horizontal_size_m))
+        fig.canvas.draw()
+        # get orthogonal render of image
+        img_arr = np.array(fig.canvas.renderer.buffer_rgba())[::-1, :]
+        close_fig(fig)
+        # re-scale array
+        img_arr_scaled = np.array(img_arr[:, :, 0]) / 255
+        original_data = (img_arr_scaled * (vmax_ - vmin_)) + vmin_
+        # Reshape the original data into non-overlapping windows
+        windowed_data = original_data[:new_shape[0] * downscale_factor, :new_shape[1] * downscale_factor].reshape(
+            new_shape[0], downscale_factor, new_shape[1], downscale_factor)
+        # Calculate the mean within each window to downscale the data
+        alt_grid = np.mean(windowed_data, axis=(1, 3))
+        # store gridded altitude to dictionary
+        altitude_by_elev_array[:,:,i_] = alt_grid
+
+        for var_name in variable_to_grid_list:
+            #  #####  grid variable
+            # get variable values and mask
+            var_to_grid = radar_obj.fields[var_name]['data'][radar_obj.elevation['data'] == elevation_]
+            var_mask = radar_obj.fields[var_name]['data'][radar_obj.elevation['data'] == elevation_].mask
+
+            # plot mask
+            fig, ax = create_fig_ax(1,1, figsize=fig_size)
+            ax.set_facecolor('black')
+            fig_adjust(fig, 0,1,0,1)
+            mesh_ = ax.pcolormesh(distance_east__m, distance_north_m, var_mask,
+                                  cmap=cm.Greys, vmin=0, vmax=1,)
+            plt.axis('auto')
+            ax.set_xlim((-grid_horizontal_size_m, grid_horizontal_size_m))
+            ax.set_ylim((-grid_horizontal_size_m, grid_horizontal_size_m))
+            fig.canvas.draw()
+            # get orthogonal render of image
+            img_arr = np.array(fig.canvas.renderer.buffer_rgba())
+            close_fig(fig)
+            img_arr_scaled = np.array(img_arr[:, :, 0]) / 255
+            # Reshape the original data into non-overlapping windows
+            windowed_data = img_arr_scaled[:new_shape[0] * downscale_factor, :new_shape[1] * downscale_factor].reshape(
+                new_shape[0], downscale_factor, new_shape[1], downscale_factor)
+            # Calculate the mean within each window to downscale the data
+            arr_mask = np.mean(windowed_data, axis=(1, 3)) < edge_threshold
+
+            # normalize array
+            vmin_ = np.min(var_to_grid)
+            vmax_ = np.max(var_to_grid)
+            array_norm_2D = (var_to_grid - vmin_) / (vmax_ - vmin_)
+            array_norm = np.zeros((var_to_grid.shape[0], var_to_grid.shape[1], 3), dtype='uint8')
+            array_norm[:,:,0] = array_norm_2D * 255
+            array_norm[:,:,1] = array_norm_2D * 255
+            array_norm[:,:,2] = array_norm_2D * 255
+            # plot
+            fig, ax = create_fig_ax(1, 1, figsize=fig_size)
+            ax.set_facecolor('black')
+            fig_adjust(fig, 0, 1, 0, 1)
+            mesh_ = ax.pcolormesh(distance_east__m, distance_north_m, array_norm)
+            plt.axis('auto')
+            ax.set_xlim((-grid_horizontal_size_m, grid_horizontal_size_m))
+            ax.set_ylim((-grid_horizontal_size_m, grid_horizontal_size_m))
+            fig.canvas.draw()
+            # get orthogonal render of image
+            img_arr = np.array(fig.canvas.renderer.buffer_rgba())
+            close_fig(fig)
+            # re-scale array
+            img_arr_scaled = np.array(img_arr[:, :, 0]) / 255
+            original_data = (img_arr_scaled * (vmax_ - vmin_)) + vmin_
+            # Reshape the original data into non-overlapping windows
+            windowed_data = original_data[:new_shape[0] * downscale_factor, :new_shape[1] * downscale_factor].reshape(
+                new_shape[0], downscale_factor, new_shape[1], downscale_factor)
+            # Calculate the mean within each window to downscale the data
+            arr_grid = np.mean(windowed_data, axis=(1, 3))
+            arr_grid[arr_mask] = np.nan
+            arr_grid = arr_grid[::-1, :]
+
+            # store gridded variable to dictionary
+            values_by_elev_dict[var_name][:, :, i_] = arr_grid
+
+    gridded_variables_dict = {}
+    for var_name in variable_to_grid_list:
+        gridded_variables_dict[var_name] = np.zeros((X_.shape[0], Y_.shape[0], Z_.shape[0])) * np.nan
+
+    # interpolate on the vertical
+    if verbose_: print('interpolating on the vertical')
+    for var_name in variable_to_grid_list:
+        for r_ in range(Y_.shape[0]):
+            for c_ in range(X_.shape[0]):
+                if np.sum(np.isnan(values_by_elev_dict[var_name][r_,c_,:])) < len(elevation_set):
+                    gridded_variables_dict[var_name][r_, c_, :] = interpolate_contiguous_or_closest(
+                        Z_, altitude_by_elev_array[r_, c_, :], values_by_elev_dict[var_name][r_, c_, :], False)
+
+
+    return gridded_variables_dict, X_, Y_, Z_, grid_lat, grid_lon
+def calculate_SHI_profile(Ze_profile, Alt_profile, height_0C, height_m20C):
+    """
+    Calculate the Severe Hail Index (SHI) profile using radar reflectivity and temperature profile data.
+
+    The Severe Hail Index is a measure of the potential for severe hail in a vertical profile of the atmosphere.
+    It combines radar reflectivity data with temperature information to assess the likelihood of hail formation.
+
+    :param Ze_profile: (numpy.ndarray) Array of radar reflectivity values (in dBZ) at various altitudes.
+    :param Alt_profile: (numpy.ndarray) Array of altitudes corresponding to the Ze_profile data (in meters).
+    :param height_0C: (float) Height (in meters) of the 0°C isotherm in the atmosphere.
+    :param height_m20C: (float) Height (in meters) of the -20°C isotherm in the atmosphere.
+
+    :return:
+        SHI: (float) Severe Hail Index value representing the potential for severe hail formation.
+            It quantifies the risk of hail in the specified vertical profile of the atmosphere.
+    """
+    z_lower_bound = 40
+    z_upper_bound = 50
+
+    SHI = 0
+    if Ze_profile.shape[0] > 1 and Ze_profile.max() > z_lower_bound:
+        # sort ascending by height
+        Alt_profile_asc = Alt_profile[np.argsort(Alt_profile)]
+        Ze_profile_asc = Ze_profile[np.argsort(Alt_profile)]
+
+        # calc reflectivity weighting function
+        weight_ref = (Ze_profile_asc - z_lower_bound) / (z_upper_bound - z_lower_bound)
+        weight_ref[Ze_profile_asc <= z_lower_bound] = 0
+        weight_ref[Ze_profile_asc >= z_upper_bound] = 1
+
+        # calc hail kenitic energy
+        hail_KE = (5 * 10 ** -6) * 10 ** (0.084 * Ze_profile_asc) * weight_ref
+
+        # calc temperature based weighting function
+        weight_height = (Alt_profile_asc - height_0C) / (height_m20C - height_0C)
+        weight_height[Alt_profile_asc <= height_0C] = 0
+        weight_height[Alt_profile_asc >= height_m20C] = 1
+
+        # calc severe hail index
+        del_alt_cropped = np.diff(Alt_profile_asc)
+        del_alt = np.concatenate((del_alt_cropped, np.array([del_alt_cropped[-1]])))
+        SHI = 0.1 * np.sum(weight_height * hail_KE * del_alt, axis=0)
+
+
+    return SHI
+def calculate_SHI_from_radar_PPI(radar_obj, radar_id, height_0C, height_m20C,
+                                 reflectivity_variable_name='reflectivity',
+                                 grid_horizontal_size_m=150000, grid_horizontal_resolution_m=1000):
+    """
+    Calculate the Severe Hail Index (SHI) from radar PPI data.
+
+    This function computes the Severe Hail Index (SHI) from radar Plan Position Indicator (PPI) data.
+    It utilizes radar reflectivity data and radar location information to generate a gridded SHI field.
+
+    :param radar_obj: (dict) Py-ART radar object containing radar data.
+    :param radar_id: (str) Unique identifier for the radar.
+    :param height_0C: (float) Height (in meters) of the 0°C isotherm in the atmosphere.
+    :param height_m20C: (float) Height (in meters) of the -20°C isotherm in the atmosphere.
+    :param reflectivity_variable_name: (str, optional) Name of the reflectivity variable in radar_obj.
+                                      Default is 'reflectivity'.
+    :param grid_horizontal_size_m: (float, optional) Horizontal size of the output grid (in meters).
+                                   Default is 150,000 meters.
+    :param grid_horizontal_resolution_m: (float, optional) Horizontal resolution of the output grid (in meters).
+                                        Default is 1,000 meters.
+
+    :return:
+        SHI_2D: (numpy.ndarray) 2D array representing the Severe Hail Index on a grid.
+        Ze_max_2D: (numpy.ndarray) 2D array representing the maximum reflectivity on the same grid.
+        X_: (numpy.ndarray) Array of x-coordinates for the grid.
+        Y_: (numpy.ndarray) Array of y-coordinates for the grid.
+        grid_lon: (numpy.ndarray) Array of longitude values for the grid.
+        grid_lat: (numpy.ndarray) Array of latitude values for the grid.
+    """
+
+    radar_lat = radar_obj.latitude['data'][0]
+    radar_lon = radar_obj.longitude['data'][0]
+    radar_alt = radar_obj.altitude['data'][0]
+    azimuth_ppi = radar_obj.azimuth['data']
+    elevation_ppi = radar_obj.elevation['data']
+    range_ppi = radar_obj.range['data']
+    Ze_ppi = radar_obj.fields[reflectivity_variable_name]['data'].filled(np.nan)
+    ppi_size = azimuth_ppi.shape[0] * range_ppi.shape[0]
+
+    # get orthogonal dimensions
+    altitude_m_ppi, dist_north_m_ppi, dist_east_m_ppi = radar_spherical_to_cartesian_ppi(azimuth_ppi,
+                                                                                         elevation_ppi,
+                                                                                         range_ppi, radar_alt)
+
+    # create grid dimensions arrays
+    X_ = np.arange(-grid_horizontal_size_m, grid_horizontal_size_m + 1, grid_horizontal_resolution_m)
+    Y_ = np.arange(-grid_horizontal_size_m, grid_horizontal_size_m + 1, grid_horizontal_resolution_m)
+    deg_per_m_lat, deg_per_m_lon = degrees_per_meter(radar_lat)
+    grid_lat = deg_per_m_lat * Y_ + radar_lat
+    grid_lon = deg_per_m_lon * X_ + radar_lon
+
+    # create vector for efficient computation
+    vector_ = np.column_stack((
+        np.zeros(ppi_size),  # for final flat index
+
+        dist_north_m_ppi.flatten(),  # Y
+        dist_east_m_ppi.flatten(),  # X
+
+        Ze_ppi.flatten(),  # Ze
+        altitude_m_ppi.flatten(),  # Z
+
+    ))
+
+    vector_[(vector_[:, 2] ** 2 + vector_[:, 3] ** 2) ** 0.5 > 150000] = np.nan
+    vector_ = no_nans(vector_, False, True)
+
+    # add flatten index to vector based on orthogonal dimensions index
+    vector_[:, 0] = orthogonal_index_to_flat(np.array(vector_[:, 2] / grid_horizontal_resolution_m, dtype=int) +
+                                             (grid_horizontal_size_m / grid_horizontal_resolution_m),
+                                             np.array(vector_[:, 1] / grid_horizontal_resolution_m, dtype=int) +
+                                             (grid_horizontal_size_m / grid_horizontal_resolution_m),
+                                             ((grid_horizontal_size_m / grid_horizontal_resolution_m) * 2) + 1)
+
+    # sort ascending with respect to flat index
+    vector_ = array_2D_sort_ascending_by_column(vector_, 0)
+
+    # get flat index as an integer and get sorted set of unique indexes
+    vector_flat_index_array = np.array(vector_[:, 0], dtype=int)
+    vector_flat_index_set = list(sorted(set(vector_flat_index_array)))
+
+    # get chunk_indexes (indexes where the vector has the same flat index)
+    indices_chunk = np.where(np.diff(vector_flat_index_array) != 0)[0] + 1
+
+    # get list of arrays of these chunks
+    Ze_chunks_by_flat_index = np.split(vector_[:, 3], indices_chunk)
+    Alt_chunks_by_flat_index = np.split(vector_[:, 4], indices_chunk)
+
+    # initialize output array
+    SHI_flat = np.zeros(Y_.shape[0] * X_.shape[0]) * np.nan
+    Ze_max_flat = np.zeros(Y_.shape[0] * X_.shape[0]) * np.nan
+    for i_, flat_index in enumerate(vector_flat_index_set):
+        SHI_flat[flat_index] = calculate_SHI_profile(Ze_chunks_by_flat_index[i_],
+                                                     Alt_chunks_by_flat_index[i_],
+                                                     height_0C, height_m20C)
+        Ze_max_flat[flat_index] = np.max(Ze_chunks_by_flat_index[i_])
+
+    SHI_2D = SHI_flat.reshape((Y_.shape[0], X_.shape[0]))
+    Ze_max_2D = Ze_max_flat.reshape((Y_.shape[0], X_.shape[0]))
+
+    return SHI_2D, Ze_max_2D, X_, Y_, grid_lon, grid_lat
 
 
 # BOM
@@ -8720,13 +9176,14 @@ def CFAD(Y_array, x_values_array, bins_tuple_y_x=(12, np.arange(-10, 40, 2)), no
 
 
 # parsivel
-def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc):
+def parsivel_raw_csv_to_netcdf(filename_input_csv, filename_output_nc, delimeter_=','):
     """
     Reads the raw data generated using https://github.com/ackermannluis/parsivel2_datalogger from a
     parsive-2 disdrometer, calculates the spectrum concentration, and other supporting variables, and saves
     data to a netcdf file.
     :param filename_input_csv: full path of input file created by https://github.com/ackermannluis/parsivel2_datalogger
     :param filename_output_nc: should include full path and extension. It will replace file if already exist!
+    :param delimeter_: string with the file's delimiter, default is ','
     :return: None
     """
 
