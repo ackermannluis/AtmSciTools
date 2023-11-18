@@ -11453,10 +11453,16 @@ def merge_multiple_netCDF_by_time_dimension(directory_where_nc_file_are_in_chron
 
             if time_variable_transform_format is None or var_name != time_variable_name:
                 # create
-                netcdf_output_file_object.createVariable(var_name,
-                                                         netcdf_first_file_object.variables[var_name].dtype,
-                                                         netcdf_first_file_object.variables[var_name].dimensions,
-                                                         zlib=True, fill_value=-9999)
+                if netcdf_first_file_object.variables[var_name].dtype == str:
+                    netcdf_output_file_object.createVariable(var_name,
+                                                             netcdf_first_file_object.variables[var_name].dtype,
+                                                             netcdf_first_file_object.variables[var_name].dimensions,
+                                                             fill_value=-9999)
+                else:
+                    netcdf_output_file_object.createVariable(var_name,
+                                                             netcdf_first_file_object.variables[var_name].dtype,
+                                                             netcdf_first_file_object.variables[var_name].dimensions,
+                                                             zlib=True, fill_value=-9999)
                 print(var_name, 'variable created')
 
                 # copy the attributes
