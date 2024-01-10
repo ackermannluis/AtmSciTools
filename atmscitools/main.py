@@ -11355,7 +11355,8 @@ def merge_multiple_netCDF_by_time_dimension(directory_where_nc_file_are_in_chron
                                             time_variable_name='time', time_dimension_name=None,
                                             vars_to_keep=None, nonTimeVars_check_list=None,
                                             key_search_str='', seek_in_subfolders=False, force_file_list=None,
-                                            time_variable_transform_format=None, time_variable_transform_scale=1):
+                                            time_variable_transform_format=None, time_variable_transform_scale=1,
+                                            force_output_filename=None):
     """
     Merges multiple files of netcdf format into one file with the name of the first file in the list with '_merged'
     :param directory_where_nc_file_are_in_chronological_order: string with the full path of the folder where the files are
@@ -11379,7 +11380,9 @@ def merge_multiple_netCDF_by_time_dimension(directory_where_nc_file_are_in_chron
      if the units attribute of the time variable says 'hours since 2019-07-15 00:00',
      then set time_variable_transform to 'hours since %Y-%m-%d %H:%M' and time_variable_transform_scale=3600.
     :param time_variable_transform_scale: scalar that is only used if time_variable_transform is not None. Represent
-    number of seconds per time variable unit
+     number of seconds per time variable unit
+    :param force_output_filename: string used for merged file output. Assume full path is given and extension.
+     If not none, output_path will be ignored.
     :return:
     """
     if time_dimension_name is None: time_dimension_name=time_variable_name
@@ -11406,10 +11409,13 @@ def merge_multiple_netCDF_by_time_dimension(directory_where_nc_file_are_in_chron
     print(parameter_list)
 
     # create copy of first file
-    if output_path == '':
-        output_filename = file_list_all[0][:-3] + '_merged.nc'
+    if force_output_filename is None:
+        if output_path == '':
+            output_filename = file_list_all[0][:-3] + '_merged.nc'
+        else:
+            output_filename = output_path + file_list_all[0].replace('\\','/').split('/')[-1][:-3] + '_merged.nc'
     else:
-        output_filename = output_path + file_list_all[0].replace('\\','/').split('/')[-1][:-3] + '_merged.nc'
+        output_filename = force_output_filename
 
     # check if time dimension is unlimited
     netcdf_first_file_object = nc.Dataset(file_list_all[0], 'r')
