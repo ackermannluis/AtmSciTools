@@ -11356,7 +11356,8 @@ def merge_multiple_netCDF_by_time_dimension(directory_where_nc_file_are_in_chron
                                             vars_to_keep=None, nonTimeVars_check_list=None,
                                             key_search_str='', seek_in_subfolders=False, force_file_list=None,
                                             time_variable_transform_format=None, time_variable_transform_scale=1,
-                                            force_output_filename=None):
+                                            force_output_filename=None, use_file_time_for_name=False,
+                                            output_filename_prefix=''):
     """
     Merges multiple files of netcdf format into one file with the name of the first file in the list with '_merged'
     :param directory_where_nc_file_are_in_chronological_order: string with the full path of the folder where the files are
@@ -11382,7 +11383,12 @@ def merge_multiple_netCDF_by_time_dimension(directory_where_nc_file_are_in_chron
     :param time_variable_transform_scale: scalar that is only used if time_variable_transform is not None. Represent
      number of seconds per time variable unit
     :param force_output_filename: string used for merged file output. Assume full path is given and extension.
+     If not none, output_path will be ignored as well as use_file_time_for_name and output_filename_prefix.
+    :param use_file_time_for_name: boolean, if true the output filename will be
+     output_path / output_filename_prefix _ time_start_YYYYmmDDHHMM _ time_stop_YYYYmmDDHHMM _ .nc
      If not none, output_path will be ignored.
+    :param output_filename_prefix: string used in output filename when output_path and or use_file_time_for_name is set
+     unless force_output_filename is set.
     :return:
     """
     if time_dimension_name is None: time_dimension_name=time_variable_name
@@ -11586,6 +11592,16 @@ def merge_multiple_netCDF_by_time_dimension(directory_where_nc_file_are_in_chron
         netcdf_file_object.close()
 
     netcdf_output_file_object.close()
+
+    # change output filename if necessary
+    if use_file_time_for_name:
+        with nc.Dataset(output_filename) as file_:
+            time_tmp_day = convert_any_time_type_to_days(file_.variables[time_variable_name][:].filled(np.nan))
+        time_str_start = time_days_to_str(time_tmp_day[0], time_format_YMDHM)
+        time_str_stop = time_days_to_str(time_tmp_day[-1], time_format_YMDHM)
+        new_filename = output_path + output_filename_prefix + '{0}_{1}_.nc'.format(time_str_start, time_str_stop)
+        os.rename(output_filename, new_filename)
+        print('output filename set to ' + new_filename)
 
     print('done')
     return output_filename
