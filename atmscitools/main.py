@@ -394,6 +394,39 @@ def shi_to_mesh75(SHI_):
 def mesh_to_damages(MESH_mm, slope_, inflex_, max_y):
     damages_perc = max_y / (1 + (e_constant ** (-slope_ * (MESH_mm - inflex_))))
     return damages_perc
+def Hdr_radar_calculate(dbz_array, zdr_array):
+    """
+    Hail Differential reflectivity Retrieval
+
+    "Hail Differential Reflectivity developed by Aydin and Zhao (1990) doi:10.1109/TGRS.1990.572906"
+    "description": "Hail Differential Reflectivity Hail Size developed by Depue et al. (2009) doi:10.1175/JAM2529.1",
+        "comments": "transform from HDR (dB) to hail size (mm); function scaled from paper figure"
+
+    Parameters:
+    ===========
+    dbz_array: numpy array or float. Radar reflectivity in dB.
+    zdr_array: numpy array or float. Differential radar reflectivity in dB.
+    Returns:
+    ========
+    hdr_dB: numpy array or float. Hail Differential reflectivity in dB.
+    hdr_mm: numpy array or float. Hail Differential reflectivity in mm.
+    """
+
+    # calculate hdr
+    # apply primary function
+    zdr_fun = 19 * zdr_array + 27
+    # set limits based on zdr
+    zdr_fun[zdr_array <= 0] = 27
+    zdr_fun[zdr_array > 1.74] = 60
+    # apply to zhh
+    hdr_dB = dbz_array - zdr_fun
+
+    # use polynomial from Depue et al. 2009 to transform dB into mm
+    hdr_mm = 0.0284 * (hdr_dB ** 2) - 0.366 * hdr_dB + 11.69
+    hdr_mm[hdr_dB <= 0] = 0
+
+    # return hdr data
+    return hdr_dB, hdr_mm
 
 
 # Misc
