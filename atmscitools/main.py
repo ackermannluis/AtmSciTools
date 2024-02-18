@@ -15365,6 +15365,57 @@ def get_current_fig_axs():
     fig = plt.gcf()
     axs = fig.axes
     return fig, axs
+def share_axes_range(ax_list, x_axis=True, y_axis=True):
+    """
+    Adjusts the shared x and/or y axis limits for a list of matplotlib axes.
+
+    Parameters:
+        ax_list (list of matplotlib.axes.Axes): A list of axes objects to modify.
+        x_axis (bool, optional): Whether to adjust the x-axis limits. Defaults to True.
+        y_axis (bool, optional): Whether to adjust the y-axis limits. Defaults to True.
+
+    Notes:
+        - The function computes the minimum and maximum values across all axes in `ax_list`.
+        - If `x_axis` is True, it sets the x-axis limits to the computed minimum and maximum.
+        - If `y_axis` is True, it sets the y-axis limits to the computed minimum and maximum.
+
+    Example:
+        import matplotlib.pyplot as plt
+
+        # Create some sample axes
+        fig, axs = plt.subplots(2, 2)
+        ax1, ax2, ax3, ax4 = axs.flatten()
+
+        # Call the function to share x-axis limits
+        share_axes_range([ax1, ax2], x_axis=True, y_axis=False)
+
+        # Call the function to share y-axis limits
+        share_axes_range([ax3, ax4], x_axis=False, y_axis=True)
+
+    """
+    x_1_list = []
+    x_2_list = []
+    y_1_list = []
+    y_2_list = []
+
+    for ax_ in ax_list:
+        x_1, x_2, y_1, y_2 = get_ax_range(ax_)
+        x_1_list.append(x_1)
+        x_2_list.append(x_2)
+        y_1_list.append(y_1)
+        y_2_list.append(y_2)
+
+    x_min = np.min(x_1_list)
+    x_max = np.max(x_2_list)
+    y_min = np.min(y_1_list)
+    y_max = np.max(y_2_list)
+
+    for ax_ in ax_list:
+        if x_axis:
+            ax_.set_xlim((x_min, x_max))
+        if y_axis:
+            ax_.set_ylim((y_min, y_max))
+
 
 def plot_precip_cumulative_colored(time_secs, precip_rate, precip_type_NWS, time_step_secs=3600,
                                    x_header='Time', y_header='mm', fig_ax=None, figsize_=(10,6), x_not_time=False,
