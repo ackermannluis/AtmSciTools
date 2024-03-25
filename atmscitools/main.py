@@ -14816,43 +14816,45 @@ def p_plot(X_series, Y_,
             ax = p_density_scatter(X_, Y_, s = S_, fig_ax=[fig, ax], cmap_=cmap_,
                                    show_cbar=show_cbar, rasterized_=rasterized_)
         else:
-            if c_=='':
-                if add_line:
-                    ax.scatter(X_, Y_, s=S_, lw=marker_lw, c='black', marker=marker_, zorder=zorder_, alpha=alpha_)
-                    ax.plot(X_, Y_, c=line_color, linewidth=linewidth_, label=label_, zorder=zorder_,
-                            linestyle=linestyle_)
-                    if y_err_arr is not None:
-                        ax.errorbar(X_, Y_, yerr=y_err_arr, color=y_err_color)
-                    if filled_arr is not None:
-                        ax.fill_between(X_, Y_, filled_arr, facecolor=line_color, interpolate=True, alpha=alpha_)
+
+            if type(c_) == str:
+                if c_ == '':
+                    if add_line:
+                        ax.scatter(X_, Y_, s=S_, lw=marker_lw, c='black', marker=marker_, zorder=zorder_, alpha=alpha_)
+                        ax.plot(X_, Y_, c=line_color, linewidth=linewidth_, label=label_, zorder=zorder_,
+                                linestyle=linestyle_)
+                        if y_err_arr is not None:
+                            ax.errorbar(X_, Y_, yerr=y_err_arr, color=y_err_color)
+                        if filled_arr is not None:
+                            ax.fill_between(X_, Y_, filled_arr, facecolor=line_color, interpolate=True, alpha=alpha_)
+                    else:
+                        trajs_ = ax.scatter(X_, Y_, s=S_, lw=marker_lw, c='black',
+                                            label=label_, marker=marker_, zorder=zorder_, alpha=alpha_)
+                        if y_err_arr is not None:
+                            ax.errorbar(X_, Y_, yerr=y_err_arr, color=y_err_color)
+                        trajs_.set_rasterized(rasterized_)
                 else:
-                    trajs_ = ax.scatter(X_, Y_, s=S_, lw=marker_lw, c='black',
-                                        label=label_, marker=marker_, zorder=zorder_, alpha=alpha_)
-                    if y_err_arr is not None:
-                        ax.errorbar(X_, Y_, yerr=y_err_arr, color=y_err_color)
-                    trajs_.set_rasterized(rasterized_)
-            elif type(c_) == str:
-                if add_line:
-                    ax.plot(X_, Y_, c=c_, linewidth=linewidth_, label=label_, zorder=zorder_,
-                            linestyle=linestyle_)
-                    trajs_ = ax.scatter(X_, Y_, s=S_, lw=marker_lw, c=c_, marker=marker_, zorder=zorder_, alpha=alpha_)
-                    trajs_.set_rasterized(rasterized_)
-                    if y_err_arr is not None:
-                        ax.errorbar(X_, Y_, yerr=y_err_arr, color=y_err_color)
-                    if filled_arr is not None:
-                        ax.fill_between(X_, Y_, filled_arr, facecolor=line_color, interpolate=True, alpha=alpha_)
-                else:
-                    trajs_ = ax.scatter(X_, Y_, s=S_, lw=marker_lw, c=c_, label=label_,
-                                        marker=marker_, zorder=zorder_, alpha=alpha_)
-                    if y_err_arr is not None:
-                        ax.errorbar(X_, Y_, yerr=y_err_arr, color=y_err_color)
-                    trajs_.set_rasterized(rasterized_)
                     if add_line:
                         ax.plot(X_, Y_, c=c_, linewidth=linewidth_, label=label_, zorder=zorder_,
                                 linestyle=linestyle_)
-
+                        trajs_ = ax.scatter(X_, Y_, s=S_, lw=marker_lw, c=c_, marker=marker_, zorder=zorder_, alpha=alpha_)
+                        trajs_.set_rasterized(rasterized_)
+                        if y_err_arr is not None:
+                            ax.errorbar(X_, Y_, yerr=y_err_arr, color=y_err_color)
                         if filled_arr is not None:
-                            ax.fill_between(X_, Y_, filled_arr, facecolor=c_, interpolate=True, alpha=alpha_)
+                            ax.fill_between(X_, Y_, filled_arr, facecolor=line_color, interpolate=True, alpha=alpha_)
+                    else:
+                        trajs_ = ax.scatter(X_, Y_, s=S_, lw=marker_lw, c=c_, label=label_,
+                                            marker=marker_, zorder=zorder_, alpha=alpha_)
+                        if y_err_arr is not None:
+                            ax.errorbar(X_, Y_, yerr=y_err_arr, color=y_err_color)
+                        trajs_.set_rasterized(rasterized_)
+                        if add_line:
+                            ax.plot(X_, Y_, c=c_, linewidth=linewidth_, label=label_, zorder=zorder_,
+                                    linestyle=linestyle_)
+
+                            if filled_arr is not None:
+                                ax.fill_between(X_, Y_, filled_arr, facecolor=c_, interpolate=True, alpha=alpha_)
             else:
                 if vmin_ is None: vmin_ = np.nanmin(c_)
                 if vmax_ is None: vmax_ = np.nanmax(c_)
