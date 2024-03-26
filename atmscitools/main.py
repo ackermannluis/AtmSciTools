@@ -15417,7 +15417,33 @@ def share_axes_range(ax_list, x_axis=True, y_axis=True):
             ax_.set_xlim((x_min, x_max))
         if y_axis:
             ax_.set_ylim((y_min, y_max))
-
+def color_y_axis(ax, color):
+    """Color your axes."""
+    for t in ax.get_yticklabels():
+        t.set_color(color)
+    return None
+def get_chart_range(ax):
+    x_1 = ax.axis()[0]
+    x_2 = ax.axis()[1]
+    y_1 = ax.axis()[2]
+    y_2 = ax.axis()[3]
+    return x_1,x_2,y_1,y_2
+def set_chart_range(ax_, x_range_tuple, y_range_tuple):
+    if x_range_tuple is not None:
+        ax_.set_xlim(x_range_tuple)
+    if y_range_tuple is not None:
+        ax_.set_ylim(y_range_tuple)
+def ax_range_equal_x_y(ax_, pad_=0):
+    x_1, x_2, y_1, y_2 = get_chart_range(ax_)
+    d_x = x_2 - x_1
+    d_y = y_2 - y_1
+    d_max = np.max([d_x, d_y])
+    x_1 = np.mean([x_1, x_2]) - d_max / 2 - pad_
+    x_2 = np.mean([x_1, x_2]) + d_max / 2 + pad_
+    y_1 = np.mean([y_1, y_2]) - d_max / 2 - pad_
+    y_2 = np.mean([y_1, y_2]) + d_max / 2 + pad_
+    ax_.set_xlim((x_1 - pad_, x_2 + pad_))
+    ax_.set_ylim((y_1 - pad_, y_2 + pad_))
 
 def plot_precip_cumulative_colored(time_secs, precip_rate, precip_type_NWS, time_step_secs=3600,
                                    x_header='Time', y_header='mm', fig_ax=None, figsize_=(10,6), x_not_time=False,
@@ -15690,12 +15716,6 @@ def p_hist(data_, figsize_ = (10,6), fig_ax=None, title_str=None, x_header=None,
         plt.show()
 
     return fig, ax, (counts_, edges_)
-def get_chart_range(ax):
-    x_1 = ax.axis()[0]
-    x_2 = ax.axis()[1]
-    y_1 = ax.axis()[2]
-    y_2 = ax.axis()[3]
-    return x_1,x_2,y_1,y_2
 
 def p_arr_vectorized(A_, cmap_=default_cm, figsize_= (10,6), vmin_=None,vmax_=None, cbar_label = ''):
     fig, ax = plt.subplots(figsize=figsize_)
@@ -17112,12 +17132,6 @@ def plot_trend_line(axes_, xd, yd, c='r', alpha=1, cus_loc = None, text_color='b
         return Rsqr, params
     else:
         return Rsqr
-
-def color_y_axis(ax, color):
-    """Color your axes."""
-    for t in ax.get_yticklabels():
-        t.set_color(color)
-    return None
 def p_density_scatter( x_ , y_, fig_ax = None, cmap_=default_cm, sort = True, bins = 20, show_cbar=False,
                        rasterized_=False, **kwargs )   :
     """
