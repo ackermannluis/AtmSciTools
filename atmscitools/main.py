@@ -9168,7 +9168,7 @@ def CFAD(Y_array, x_values_array, bins_tuple_y_x=(12, np.arange(-10, 40, 2)), no
 
     hist_out = np.histogram2d(Y_array.flatten()[~np.isnan(x_values_array.flatten())],
                               x_values_array.flatten()[~np.isnan(x_values_array.flatten())],
-                              normed=False, bins=bins_tuple_y_x)
+                              bins=bins_tuple_y_x)
     hist_array, hist_r, hist_c = hist_out
     hist_r = (hist_r[:-1] + hist_r[1:]) * 0.5
     hist_c = (hist_c[:-1] + hist_c[1:]) * 0.5
