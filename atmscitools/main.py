@@ -1271,6 +1271,67 @@ def interpolate_contiguous_or_closest(x, xp, fp, sort_ascending=True, left_=np.n
             interpolated_[np.argmin(np.abs(x - xp_ascending[i_ + 1]))] = fp_ascending[i_ + 1]
 
     return interpolated_
+def interpolate_2d(x_array, y_array, values_array_2d, x_point, y_point):
+    """
+    Finds the linearly interpolated value (in 2 dimensions) of values_array_2d at point (x_point, y_point).
+    Given arrays of x-coordinates, y-coordinates, and corresponding values, this function performs linear
+    interpolation in 2D. It computes the interpolated value at the specified point (x_point, y_point) within
+    the grid defined by the input arrays. The interpolation is based on the distances between the point of
+    interest and the surrounding grid points, and a weighted average is done to calculate the output value.
+    The 9 closest points are used for the average with the closest point having a weight of 1 and the farthest
+    point a weight of 0, with the rest of the distances linearly distributed. The result is returned as a float.
+
+    Args:
+        x_array (numpy.ndarray): 1D or 2D array of x-coordinates.
+        y_array (numpy.ndarray): 1D or 2D array of y-coordinates.
+        values_array_2d (numpy.ndarray): 2D array of values corresponding to the (x, y) coordinates.
+        x_point (float): X-coordinate of the point for interpolation.
+        y_point (float): Y-coordinate of the point for interpolation.
+
+    Returns:
+        float: Interpolated value at the specified (x_point, y_point).
+    """
+
+    # mesh if needed
+    if len(x_array.shape) == 1:
+        if len(y_array.shape) == 1:
+            x_array_2d = np.zeros((x_array.shape[0], y_array.shape[0]))
+            for c_ in range(y_array.shape[0]):
+                x_array_2d[:, c_] = x_array
+        else:
+            x_array_2d = np.zeros((x_array.shape[0], y_array.shape[1]))
+            for c_ in range(y_array.shape[1]):
+                x_array_2d[:, c_] = x_array
+    else:
+        x_array_2d = x_array
+    if len(y_array.shape) == 1:
+        y_array_2d = np.zeros((x_array.shape[0], y_array.shape[0]))
+        for r_ in range(x_array.shape[0]):
+            y_array_2d[r_, :] = y_array
+    else:
+        y_array_2d = y_array
+
+    # normalize both dimensions
+    x_array_2d_norm = normalize_prescribed_min_max(x_array_2d, np.nanmin(x_array_2d), np.nanmax(x_array_2d))
+    y_array_2d_norm = normalize_prescribed_min_max(y_array_2d, np.nanmin(y_array_2d), np.nanmax(y_array_2d))
+
+    x_point_norm = normalize_prescribed_min_max(x_point, np.nanmin(x_array_2d), np.nanmax(x_array_2d))
+    y_point_norm = normalize_prescribed_min_max(y_point, np.nanmin(y_array_2d), np.nanmax(y_array_2d))
+
+    del_arr_x = np.abs(x_array_2d_norm - x_point_norm)
+    del_arr_y = np.abs(y_array_2d_norm - y_point_norm)
+
+    dist_arr_2d = (del_arr_x ** 2 + del_arr_y ** 2) ** 0.5
+
+    closest_x_index, closest_y_index = find_min_index_2d_array(dist_arr_2d)
+
+    weights = 1 - dist_arr_2d[closest_x_index - 1:closest_x_index + 2, closest_y_index - 1:closest_y_index + 2]
+    weights_norm = normalize_prescribed_min_max(weights, np.min(weights), np.max(weights))
+
+    output_interpolated_point_value = np.average(values_array_2d[closest_x_index - 1:closest_x_index + 2,
+                                                 closest_y_index - 1:closest_y_index + 2],
+                                                 weights=weights_norm)
+    return output_interpolated_point_value
 def list_duplicates(seq):
     tally = defaultdict(list)
     for i,item in enumerate(seq):
