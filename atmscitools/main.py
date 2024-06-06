@@ -11366,9 +11366,14 @@ def save_dictionary_to_netcdf(dict_, output_filename, print_debug=True ):
     # create variables
     for var_ in vars_list:
         if print_debug: print('creating', var_, 'variable')
-        file_obj.createVariable(var_,
-                                dict_['variables'][var_]['data'].dtype,
-                                dict_['variables'][var_]['dimensions'], zlib=True)
+        if '<U' in str(dict_['variables'][var_]['data'].dtype):
+            file_obj.createVariable(var_,
+                                    dict_['variables'][var_]['data'].dtype,
+                                    dict_['variables'][var_]['dimensions'])
+        else:
+            file_obj.createVariable(var_,
+                                    dict_['variables'][var_]['data'].dtype,
+                                    dict_['variables'][var_]['dimensions'], zlib=True)
 
         # populate variables
         file_obj.variables[var_][:] = dict_['variables'][var_]['data']
