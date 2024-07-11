@@ -38,7 +38,7 @@ from math import e as e_constant
 import math
 from tkinter import filedialog
 from pathlib import Path as Path_pathlib
-
+import re
 
 from PIL import Image as PIL_Image
 from PIL.PngImagePlugin import PngInfo
@@ -10434,6 +10434,867 @@ def calculate_LWC(N_D, D_series):
     water_density = 1E6 # g/m3
     LWC_ = (np.pi * water_density / 6) *  np.nansum((N_D * (D_series**3) * D_grad))
     return LWC_
+
+# Vaisala
+def convert_vaisala_FD70_raw_to_netcdf_V1(filename_raw, path_output,
+                                          filename_prefix='FD70_', use_header_location_in_filename=True,
+                                          print_debug=False):
+    """
+    Converts raw text files with data from the Vaisala Forward Scatter Sensor FD70 into nice netCDF files,
+    keeping all information from the original raw file. Assumes the message is MES8.
+    :param filename_raw: full path and filename to raw data
+    :param path_output: full path to output directory, no filename to be included.
+    :param filename_prefix: first part of output filename to be added
+    :param use_header_location_in_filename: looks for "#    location: " as part of the filename (striped of bad chars)
+    :param print_debug: bool, if True multiple messages will be printed that shows the status of the script.
+    :return: None
+    """
+
+    data_start_line = 259
+    PSD_bins = 41
+    PVD_bins = 26
+
+    """    
+    from the manual...
+
+    Table 37 Droplet size distribution
+    Position | Name | Example | Bin | Mean(mm) | Bin width(mm) | Droplet size range(mm)
+    7 … 10    | B001 | 21 | 1  | 0.12 | 0.02 | 0.110 … 0.130
+    12 … 15   | B002 | 22 | 2  | 0.14 | 0.02 | 0.130 … 0.150
+    17 … 20   | B003 | 25 | 3  | 0.17 | 0.03 | 0.155 … 0.185
+    22 … 25   | B004 | 11 | 4  | 0.2  | 0.03 | 0.185 … 0.215
+    27 … 30   | B005 | 9  | 5  | 0.23 | 0.04 | 0.210 … 0.250
+    32 … 35   | B006 | 1  | 6  | 0.27 | 0.05 | 0.245 … 0.295
+    37 … 40   | B007 | 7  | 7  | 0.32 | 0.05 | 0.295 … 0.345
+    42 … 45   | B008 | 0  | 8  | 0.38 | 0.06 | 0.350 … 0.410
+    47 … 50   | B009 | 0  | 9  | 0.45 | 0.07 | 0.415 … 0.485
+    52 … 55   | B010 | 0  | 10 | 0.53 | 0.09 | 0.485 … 0.575
+    57 … 60   | B011 | 0  | 11 | 0.62 | 0.10 | 0.570 … 0.670
+    62 … 65   | B012 | 0  | 12 | 0.73 | 0.12 | 0.670 … 0.790
+    67 … 70   | B013 | 0  | 13 | 0.86 | 0.15 | 0.785 … 0.935
+    72 … 75   | B014 | 0  | 14 | 1.02 | 0.16 | 0.940 … 1.100
+    77 … 80   | B015 | 3  | 15 | 1.14 | 0.08 | 1.100 … 1.180
+    82 … 85   | B016 | 0  | 16 | 1.23 | 0.09 | 1.185 … 1.275
+    87 … 90   | B017 | 0  | 17 | 1.32 | 0.09 | 1.275 … 1.365
+    92 … 95   | B018 | 0  | 18 | 1.41 | 0.10 | 1.360 … 1.460
+    97 … 100  | B019 | 0  | 19 | 1.52 | 0.11 | 1.465 … 1.575
+    102 … 105 | B020 | 0  | 20 | 1.63 | 0.12 | 1.570 … 1.690
+    107 … 110 | B021 | 0  | 21 | 1.75 | 0.12 | 1.690 … 1.810
+    112 … 115 | B022 | 0  | 22 | 1.88 | 0.14 | 1.810 … 1.950
+    117 … 120 | B023 | 0  | 23 | 2.02 | 0.14 | 1.950 … 2.090
+    122 … 125 | B024 | 0  | 24 | 2.16 | 0.15 | 2.085 … 2.350
+    127 … 130 | B025 | 0  | 25 | 2.32 | 0.17 | 2.235 … 2.405
+    132 … 135 | B026 | 0  | 26 | 2.49 | 0.17 | 2.405 … 2.575
+    137 … 140 | B027 | 0  | 27 | 2.68 | 0.19 | 2.585 … 2.775
+    142 … 145 | B028 | 0  | 28 | 2.87 | 0.21 | 2.765 … 2.975
+    147 … 150 | B029 | 0  | 29 | 3.08 | 0.22 | 2.970 … 3.190
+    152 … 155 | B030 | 0  | 30 | 3.31 | 0.23 | 3.195 … 3.425
+    157 … 160 | B031 | 0  | 31 | 3.55 | 0.25 | 3.425 … 3.675
+    162 … 165 | B032 | 0  | 32 | 3.82 | 0.27 | 3.470 … 3.955
+    167 … 170 | B033 | 0  | 33 | 4.10 | 0.29 | 3.955 … 4.245
+    172 … 175 | B034 | 0  | 34 | 4.40 | 0.32 | 4.240 … 4.560
+    177 … 180 | B035 | 0  | 35 | 4.72 | 0.33 | 4.555 … 4.885
+    182 … 185 | B036 | 0  | 36 | 5.07 | 0.36 | 4.890 … 5.250
+    187 … 190 | B037 | 0  | 37 | 5.44 | 0.39 | 5.245 … 5.635
+    192 … 195 | B038 | 0  | 38 | 5.84 | 0.41 | 5.635 … 6.045
+    197 … 200 | B039 | 0  | 39 | 6.27 | 0.45 | 6.045 … 6.495
+    202 … 205 | B040 | 0  | 40 | 6.73 | 0.47 | 6.495 … 6.965
+    207 … 210 | B041 | 0  | 41 | >7
+    """
+    PSD_bins_means = np.array([
+        0.12,
+        0.14,
+        0.17,
+        0.2,
+        0.23,
+        0.27,
+        0.32,
+        0.38,
+        0.45,
+        0.53,
+        0.62,
+        0.73,
+        0.86,
+        1.02,
+        1.14,
+        1.23,
+        1.32,
+        1.41,
+        1.52,
+        1.63,
+        1.75,
+        1.88,
+        2.02,
+        2.16,
+        2.32,
+        2.49,
+        2.68,
+        2.87,
+        3.08,
+        3.31,
+        3.55,
+        3.82,
+        4.10,
+        4.40,
+        4.72,
+        5.07,
+        5.44,
+        5.84,
+        6.27,
+        6.73,
+        21.5,
+    ])
+    PSD_bins_mins = np.array([
+        0.110,
+        0.130,
+        0.155,
+        0.185,
+        0.210,
+        0.245,
+        0.295,
+        0.350,
+        0.415,
+        0.485,
+        0.570,
+        0.670,
+        0.785,
+        0.940,
+        1.100,
+        1.185,
+        1.275,
+        1.360,
+        1.465,
+        1.570,
+        1.690,
+        1.810,
+        1.950,
+        2.085,
+        2.235,
+        2.405,
+        2.585,
+        2.765,
+        2.970,
+        3.195,
+        3.425,
+        3.470,
+        3.955,
+        4.240,
+        4.555,
+        4.890,
+        5.245,
+        5.635,
+        6.045,
+        6.495,
+        6.965,
+    ])
+    PSD_bins_maxs = np.array([
+        0.130,
+        0.150,
+        0.185,
+        0.215,
+        0.250,
+        0.295,
+        0.345,
+        0.410,
+        0.485,
+        0.575,
+        0.670,
+        0.790,
+        0.935,
+        1.100,
+        1.180,
+        1.275,
+        1.365,
+        1.460,
+        1.575,
+        1.690,
+        1.810,
+        1.950,
+        2.090,
+        2.350,
+        2.405,
+        2.575,
+        2.775,
+        2.975,
+        3.190,
+        3.425,
+        3.675,
+        3.955,
+        4.245,
+        4.560,
+        4.885,
+        5.250,
+        5.635,
+        6.045,
+        6.495,
+        6.965,
+        35.00,
+    ])
+
+    """
+    from the manual...
+    Table 39 Droplet fall speed distribution
+    Position | Name | Example | Bin Mean (m/s) | Droplet fall speed range (m/s)
+    9 … 12    | B001 | 100 | 1  | 0.2 | 0 … 0.4
+    14 … 17   | B002 | 200 | 2  | 0.6 | 0.4 … 0.8
+    19 … 22   | B003 | 300 | 3  | 1.0 | 0.8 … 1.2
+    24 … 27   | B004 | 50  | 4  | 1.4 | 1.2 … 1.6
+    29 … 32   | B005 | 20  | 5  | 1.8 | 1.6 … 2.0
+    34 … 37   | B006 | 11  | 6  | 2.2 | 2.0 … 2.4
+    39 … 42   | B007 | 5   | 7  | 2.6 | 2.4 … 2.8
+    44 … 47   | B008 | 4   | 8  | 3.0 | 2.8 … 3.2
+    49 … 52   | B009 | 0   | 9  | 3.4 | 3.2 … 3.6
+    54 … 57   | B010 | 0   | 10 | 3.8 | 3.6 … 4.0
+    59 … 62   | B011 | 0   | 11 | 4.2 | 4.0 … 4.4
+    64 … 67   | B012 | 0   | 12 | 4.6 | 4.4 … 4.8
+    69 … 72   | B013 | 0   | 13 | 5.0 | 4.8 … 5.2
+    74 … 77   | B014 | 0   | 14 | 5.4 | 5.2 … 5.6
+    79 … 82   | B015 | 0   | 15 | 5.8 | 5.6 … 6.0
+    84 … 87   | B016 | 3   | 16 | 6.2 | 6.0 … 6.4
+    89 … 92   | B017 | 0   | 17 | 6.6 | 6.4 … 6.8
+    94 … 97   | B018 | 0   | 18 | 7.0 | 6.8 … 7.2
+    99 … 102  | B019 | 0   | 19 | 7.4 | 7.2 … 7.6
+    104 … 107 | B020 | 0   | 20 | 7.8 | 7.6 … 8.0
+    109 … 112 | B021 | 0   | 21 | 8.2 | 8.0 … 8.4
+    114 … 117 | B022 | 0   | 22 | 8.6 | 8.4 … 8.8
+    119 … 122 | B023 | 0   | 23 | 9.0 | 8.8 … 9.2
+    124 … 127 | B024 | 0   | 24 | 9.4 | 9.2 … 9.6
+    129 … 132 | B025 | 0   | 25 | 9.8 | 9.6 … 10.0
+    134 … 137 | B026 | 0   | 26 | >10
+
+    """
+    PVD_bins_means = np.array([
+        0.2,
+        0.6,
+        1.0,
+        1.4,
+        1.8,
+        2.2,
+        2.6,
+        3.0,
+        3.4,
+        3.8,
+        4.2,
+        4.6,
+        5.0,
+        5.4,
+        5.8,
+        6.2,
+        6.6,
+        7.0,
+        7.4,
+        7.8,
+        8.2,
+        8.6,
+        9.0,
+        9.4,
+        9.8,
+        10.2,
+    ])
+    PVD_bins_mins = np.array([
+        0,
+        0.4,
+        0.8,
+        1.2,
+        1.6,
+        2.0,
+        2.4,
+        2.8,
+        3.2,
+        3.6,
+        4.0,
+        4.4,
+        4.8,
+        5.2,
+        5.6,
+        6.0,
+        6.4,
+        6.8,
+        7.2,
+        7.6,
+        8.0,
+        8.4,
+        8.8,
+        9.2,
+        9.6,
+        10,
+    ])
+    PVD_bins_maxs = np.array([
+        0.4,
+        0.8,
+        1.2,
+        1.6,
+        2.0,
+        2.4,
+        2.8,
+        3.2,
+        3.6,
+        4.0,
+        4.4,
+        4.8,
+        5.2,
+        5.6,
+        6.0,
+        6.4,
+        6.8,
+        7.2,
+        7.6,
+        8.0,
+        8.4,
+        8.8,
+        9.2,
+        9.6,
+        10.0,
+        10.4,
+    ])
+
+
+    precip_type_dict_NWS = """
+        'C': 'No Precip',
+        'A': 'Hail',
+        'L': 'Drizzle',
+        'L+': 'heavy Drizzle',
+        'L-': 'light Drizzle',
+        'R': 'Rain',
+        'R+': 'heavy Rain',
+        'R-': 'light Rain',
+        'RL': 'Drizzle and Rain',
+        'RL+': 'heavy Drizzle and Rain',
+        'RL-': 'light Drizzle and Rain',
+        'RLS': 'Rain, Drizzle and Snow',
+        'RLS+': 'heavy Rain, Drizzle and Snow',
+        'RLS-': 'light Rain, Drizzle and Snow',
+        'S': 'Snow',
+        'S+': 'heavy Snow',
+        'S-': 'light Snow',
+        'SG': 'Snow Grains',
+        'SP': 'Freezing Rain'
+        """
+
+    if print_debug: print('-' * 40 + f'\nreading raw file text\n{filename_raw}\n')
+    with open(filename_raw, 'r') as file_:
+        file_lines = file_.readlines()
+
+    # define file header
+    file_header = ''
+    for line_ in file_lines[:data_start_line]:
+        file_header += line_
+    # get site location variables from header
+    site_lat = float(file_lines[17].split(':')[-1].strip().replace('*','').strip())
+    site_lon = float(file_lines[18].split(':')[-1].strip().replace('*','').strip())
+    site_alt = float(file_lines[19].split(':')[-1].strip().replace('*','').strip())
+    site_location = re.sub('[^A-Za-z0-9]+', '', file_header.split('#    location: ')[-1])
+    if print_debug: print('file header defined')
+
+    # define raw data lines list (without header)
+    data_raw_lines_list = file_lines[data_start_line:]
+    # remove path from first time stamp
+    data_raw_lines_list[0] = data_raw_lines_list[0][-123:]
+    # remove possible empty lines from list
+    for row_index_original in np.arange(len(data_raw_lines_list))[::-1]:  # goes in reverse order since size changes
+        if data_raw_lines_list[row_index_original] == '\n':
+            data_raw_lines_list.pop(row_index_original)
+    # check that first time stamp is from the start of message (not partial from previous communication)
+    data_raw_lines_list[0].split('::')
+    if len(data_raw_lines_list[0].split('::')) != 3:
+        raise_error('First time stamp in file is not complete, possibly corropted initial reading.\n' +
+                    f'problem encountered on filename: {filename_raw}\n' +
+                    f'at time stamp {data_raw_lines_list[0][:21]}')
+    # # remove last lines if the file was cut mid creating of last message
+    # if int(len(data_raw_lines_list)/6) - len(data_raw_lines_list)/6 != 0:
+    #     if print_debug: print('file seems to have cut mid storing of last message, attempting to clean')
+    #     data_raw_lines_list = data_raw_lines_list[:int(int(len(data_raw_lines_list)/6)*6)]
+    #     if len(data_raw_lines_list[-6].split('::')) == 3:
+    #         if print_debug: print('cleaning seems to have worked, continuing compilation')
+    #     else:
+    #         raise_error('file seems to be missing some time stamps in the body of the data (not the end or start) ' +
+    #                     'will continue but an error during the loop is likely. ' +
+    #                     'See error time stamp for manual cleaning')
+    if print_debug: print('initial data cleaning done')
+
+    # loop through lines to get individual time stamps (each time stamp takes 6 lines)
+    number_of_time_stamps = int(len(data_raw_lines_list) / 6)
+    # initialize arrays
+    time_stamps_logger = np.zeros(number_of_time_stamps, dtype=float)
+    time_stamps_msg = np.zeros(number_of_time_stamps, dtype=float)
+    HW_flag = np.zeros(number_of_time_stamps, dtype='<U1')
+    maintenance_flag = np.zeros(number_of_time_stamps, dtype='<U1')
+    MOR_1min = np.zeros(number_of_time_stamps, dtype=int)
+    MOR_10min = np.zeros(number_of_time_stamps, dtype=int)
+    NWS_code_main = np.zeros(number_of_time_stamps, dtype='<U3')
+    NWS_code_2nd = np.zeros(number_of_time_stamps, dtype='<U3')
+    NWS_code_3rd = np.zeros(number_of_time_stamps, dtype='<U3')
+    SYNOP_1min = np.zeros(number_of_time_stamps, dtype=int)
+    SYNOP_15min = np.zeros(number_of_time_stamps, dtype=int)
+    SYNOP_1hr = np.zeros(number_of_time_stamps, dtype=int)
+    precip_int = np.zeros(number_of_time_stamps, dtype=float)
+    precip_acc = np.zeros(number_of_time_stamps, dtype=float)
+    snow_acc = np.zeros(number_of_time_stamps, dtype=int)
+    amb_temp = np.zeros(number_of_time_stamps, dtype=float)
+    dew_point = np.zeros(number_of_time_stamps, dtype=float)
+    RH_ = np.zeros(number_of_time_stamps, dtype=float)
+    luminance_ = np.zeros(number_of_time_stamps, dtype='<U5')
+    present_METAR = np.zeros(number_of_time_stamps, dtype='<U5')
+    recent_METAR = np.zeros(number_of_time_stamps, dtype='<U5')
+    Ze_ = np.zeros(number_of_time_stamps, dtype=float)
+    PSD_ = np.zeros((number_of_time_stamps, PSD_bins), dtype=int)
+    KE_ = np.zeros(number_of_time_stamps, dtype=float)
+    PVD_ = np.zeros((number_of_time_stamps, PVD_bins), dtype=int)
+    if print_debug: print('output arrays initialized, starting loop through each time stamp')
+    # start loop (skipping internal content of message)
+    valid_data_flag = np.zeros(number_of_time_stamps, dtype=bool)
+    index_output = -1
+    index_raw = -6
+    while index_raw < len(data_raw_lines_list)-11:
+        index_output += 1
+        index_raw += 6
+        line_1_txt = data_raw_lines_list[index_raw]
+        line_2_txt = data_raw_lines_list[index_raw + 1]
+        line_3_txt = data_raw_lines_list[index_raw + 2]
+        line_4_txt = data_raw_lines_list[index_raw + 3]
+        line_5_txt = data_raw_lines_list[index_raw + 4]
+
+        # check that all time stamps from datalogger are within 1 second
+        datalogger_time_stamps_list = []
+        for temp_index in range(5):
+            datalogger_time_stamps_list.append(
+                time_str_to_seconds(data_raw_lines_list[index_raw + temp_index].split('::')[1],
+                                    '%Y-%m-%d %H:%M:%S'))
+        if np.max(np.abs(np.diff(datalogger_time_stamps_list))) > 1:
+            if print_debug:
+                print('\ttimes shown by datalogger within the same message time stamp are not consistent.\n'+
+                      '\tlikely due to corruption of data or incomplete transmission.\n' +
+                      f'\tproblem encountered on filename: {filename_raw}\n' +
+                      f'\tat time stamp {data_raw_lines_list[index_raw].split("::")[1]}.\n' +
+                      f'\tAttempting to find start of new uncorrupted stamps')
+
+            index_output -= 1
+            index_raw -= 5
+            continue
+
+        # add data from line 1 to output arrays
+        time_stamps_logger[index_output] = time_str_to_seconds(line_1_txt.split('::')[1], '%Y-%m-%d %H:%M:%S')
+        time_stamps_msg[index_output] = time_str_to_seconds(line_1_txt.split('::')[2][:20], time_format_iso)
+        HW_flag[index_output] = line_1_txt[44]
+        maintenance_flag[index_output] = line_1_txt[45]
+        MOR_1min[index_output] = line_1_txt[47:52]
+        MOR_10min[index_output] = line_1_txt[53:58]
+        NWS_code_main[index_output] = line_1_txt[59:62]
+        NWS_code_2nd[index_output] = line_1_txt[63:66]
+        NWS_code_3rd[index_output] = line_1_txt[67:70]
+        SYNOP_1min[index_output] = line_1_txt[71:73]
+        SYNOP_15min[index_output] = line_1_txt[74:76]
+        SYNOP_1hr[index_output] = line_1_txt[77:79]
+        precip_int[index_output] = line_1_txt[80:86]
+        precip_acc[index_output] = line_1_txt[87:93]
+        snow_acc[index_output] = line_1_txt[94:98]
+        amb_temp[index_output] = line_1_txt[99:104]
+        dew_point[index_output] = line_1_txt[105:110]
+        RH_[index_output] = line_1_txt[111:116]
+        luminance_[index_output] = line_1_txt[117:122]
+
+        # add data from line 2 to output array
+        present_METAR[index_output] = line_2_txt.split('::')[2].strip()
+
+        # add data from line 3 to output array
+        recent_METAR[index_output] = line_3_txt.split('::')[2].strip()
+
+        # add data from line 4 to output arrays
+        Ze_[index_output] = line_4_txt.split('::')[2].split()[0]
+        PSD_[index_output, :] = line_4_txt.split('::')[2].split()[1:]
+
+        # add data from line 5 to output arrays
+        KE_[index_output] = line_5_txt.split('::')[2].split()[0]
+        PVD_[index_output, :] = line_5_txt.split('::')[2].split()[1:]
+        valid_data_flag[index_output] = True
+    if print_debug: print('all time stamps read into output arrays')
+
+    # keep only rows with valid data
+    time_stamps_logger = time_stamps_logger[valid_data_flag]
+    time_stamps_msg = time_stamps_msg[valid_data_flag]
+    HW_flag = HW_flag[valid_data_flag]
+    maintenance_flag = maintenance_flag[valid_data_flag]
+    MOR_1min = MOR_1min[valid_data_flag]
+    MOR_10min = MOR_10min[valid_data_flag]
+    NWS_code_main = NWS_code_main[valid_data_flag]
+    NWS_code_2nd = NWS_code_2nd[valid_data_flag]
+    NWS_code_3rd = NWS_code_3rd[valid_data_flag]
+    SYNOP_1min = SYNOP_1min[valid_data_flag]
+    SYNOP_15min = SYNOP_15min[valid_data_flag]
+    SYNOP_1hr = SYNOP_1hr[valid_data_flag]
+    precip_int = precip_int[valid_data_flag]
+    precip_acc = precip_acc[valid_data_flag]
+    snow_acc = snow_acc[valid_data_flag]
+    amb_temp = amb_temp[valid_data_flag]
+    dew_point = dew_point[valid_data_flag]
+    RH_ = RH_[valid_data_flag]
+    luminance_ = luminance_[valid_data_flag]
+    present_METAR = present_METAR[valid_data_flag]
+    recent_METAR = recent_METAR[valid_data_flag]
+    Ze_ = Ze_[valid_data_flag]
+    PSD_ = PSD_[valid_data_flag]
+    KE_ = KE_[valid_data_flag]
+    PVD_ = PVD_[valid_data_flag]
+
+    # place all data into dictionary
+    dict_ = {}
+    dict_['variables'] = {}
+    dict_['dimensions'] = ('time', 'PSD_bins_means', 'PVD_bins_means')
+
+    attribute_list = [
+        ('author', 'Luis Ackermann'),
+        ('author email', 'ackermann.luis@gmail.com'),
+        ('version', '1'),
+        ('time of file creation', time_seconds_to_str(time.time(), '%Y-%m-%d_%H:%M UTC')),
+        ('raw file header', file_header),
+        ('site_latitued', site_lat),
+        ('site_longitude', site_lon),
+        ('site_altitude_meters', site_alt),
+        ('site_location', site_location),
+        ('instrument_type', 'Vaisala FD70'),
+    ]
+    dict_['attributes'] = attribute_list
+
+    # ##### dimensions
+
+    # time
+    var_name = 'time'
+    day_time_str = time_seconds_to_str(0, '%Y-%m-%d_%H:%M:%S UTC')
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'seconds since ' + day_time_str),
+        ('description', 'time stamp as reported by message in UTC')]
+    dict_['variables'][var_name]['data'] = time_stamps_msg
+
+    # time_logger
+    var_name = 'time_from_datalogger'
+    day_time_str = time_seconds_to_str(0, '%Y-%m-%d_%H:%M:%S UTC')
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'seconds since ' + day_time_str),
+        ('description', 'time stamp as reported by datalogger in unknown time zone, likely local.')]
+    dict_['variables'][var_name]['data'] = time_stamps_logger
+
+    # PSD_bins_means
+    var_name = 'PSD_bins_means'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('PSD_bins_means',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'mm'),
+        ('description', 'mean bin size for each Particle Size Distribution bin'),
+        ('note', 'on manual, the last bin is reported as more than 7mm, with the instrument range going to 35. ' +
+         'no further details are provided about this bin so the mid-point between the bin edges was used for the mean.'),
+    ]
+    dict_['variables'][var_name]['data'] = PSD_bins_means
+
+    # PSD_bins_mins
+    var_name = 'PSD_bins_mins'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('PSD_bins_means',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'mm'),
+        ('description', 'minimum bin size for each Particle Size Distribution bin. Left-side bin edge.'),
+        ('note', 'on manual, the last bin is reported as more than 7mm, with the instrument range going to 35. ' +
+         'no further details are provided about this bin so ' +
+         'the right-size bin edge of the previous bin was used for the last bin.'),
+    ]
+    dict_['variables'][var_name]['data'] = PSD_bins_mins
+
+    # PSD_bins_maxs
+    var_name = 'PSD_bins_maxs'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('PSD_bins_means',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'mm'),
+        ('description', 'maximum bin size for each Particle Size Distribution bin. Right-side bin edge.'),
+        ('note', 'on manual, the last bin is reported as more than 7mm, with the instrument range going to 35. ' +
+         'no further details are provided about this bin so the instrument maximum range is used for the last bin'),
+    ]
+    dict_['variables'][var_name]['data'] = PSD_bins_maxs
+
+
+    # PVD_bins_means
+    var_name = 'PVD_bins_means'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('PVD_bins_means',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'm/s'),
+        ('description', 'mean bin fall speed for each Particle Velocity Distribution bin'),
+        ('note', 'on manual, the last bin is reported as more than 10m/s, ' +
+                 'with the instrument range not specifying an upper limit. ' +
+                 'no further details are provided about this bin. ' +
+                 'Since the bin spacing is consistent for all previous ones, '
+                 'the last bin mean and edges were extrapolated from the previous one.'),
+    ]
+    dict_['variables'][var_name]['data'] = PVD_bins_means
+
+    # PVD_bins_mins
+    var_name = 'PVD_bins_mins'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('PVD_bins_means',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'm/s'),
+        ('description', 'minimum bin fall speed for each Particle Velocity Distribution bin. Left-side bin edge.'),
+        ('note', 'on manual, the last bin is reported as more than 10m/s, ' +
+                 'with the instrument range not specifying an upper limit. ' +
+                 'no further details are provided about this bin. ' +
+                 'Since the bin spacing is consistent for all previous ones, '
+                 'the last bin minimum was extrapolated from the previous one.'),
+    ]
+    dict_['variables'][var_name]['data'] = PVD_bins_mins
+
+    # PVD_bins_maxs
+    var_name = 'PVD_bins_maxs'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('PVD_bins_means',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'm/s'),
+        ('description', 'maximum bin fall speed for each Particle Velocity Distribution bin. Right-side bin edge.'),
+        ('note', 'on manual, the last bin is reported as more than 10m/s, ' +
+                 'with the instrument range not specifying an upper limit. ' +
+                 'no further details are provided about this bin. ' +
+                 'Since the bin spacing is consistent for all previous ones, '
+                 'the last bin maximum was extrapolated from the previous one.'),
+    ]
+    dict_['variables'][var_name]['data'] = PVD_bins_maxs
+
+
+    # ##### other variables
+    var_name = 'HW_flag'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', '0:OK,W:Warning,A:Alarm'),
+        ('description', 'Overall hardware alert'),
+    ]
+    dict_['variables'][var_name]['data'] = HW_flag
+
+    var_name = 'maintenance_flag'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', '0:OK,I:Info,W:Warning,A:Alarm'),
+        ('description', 'Overall maintenance alert'),
+    ]
+    dict_['variables'][var_name]['data'] = maintenance_flag
+
+    var_name = 'MOR_1min'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'm'),
+        ('description', 'MOR, 1-minute average in meters'),
+    ]
+    dict_['variables'][var_name]['data'] = MOR_1min
+
+    var_name = 'MOR_10min'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'm'),
+        ('description', 'MOR, 10-minute average in meters'),
+    ]
+    dict_['variables'][var_name]['data'] = MOR_10min
+
+    var_name = 'NWS_code_main'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'na'),
+        ('description', 'Most dominant Precipitation Type (NWS code)'),
+        ('code_list', precip_type_dict_NWS)
+    ]
+    dict_['variables'][var_name]['data'] = NWS_code_main
+
+    var_name = 'NWS_code_2nd'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'na'),
+        ('description', '2nd dominant Precipitation Type (NWS code)'),
+        ('code_list', precip_type_dict_NWS)
+    ]
+    dict_['variables'][var_name]['data'] = NWS_code_2nd
+
+    var_name = 'NWS_code_3rd'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'na'),
+        ('description', '3rd dominant Precipitation Type (NWS code)'),
+        ('code_list', precip_type_dict_NWS)
+    ]
+    dict_['variables'][var_name]['data'] = NWS_code_3rd
+
+    var_name = 'SYNOP_1min'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'na'),
+        ('description', 'Present weather instant (1 min) (SYNOP)'),
+        ('code_list', 'see https://xwiki.avinor.no/display/ADD/Present+Weather+Codes%2C+WMO+SYNOP+4680%2C+WMO+4678'),
+    ]
+    dict_['variables'][var_name]['data'] = SYNOP_1min
+
+    var_name = 'SYNOP_15min'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'na'),
+        ('description', 'Present weather instant (15 min) (SYNOP)'),
+        ('code_list', 'see https://xwiki.avinor.no/display/ADD/Present+Weather+Codes%2C+WMO+SYNOP+4680%2C+WMO+4678'),
+    ]
+    dict_['variables'][var_name]['data'] = SYNOP_15min
+
+    var_name = 'SYNOP_1hr'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'na'),
+        ('description', 'Present weather instant (1 hour) (SYNOP)'),
+        ('code_list', 'see https://xwiki.avinor.no/display/ADD/Present+Weather+Codes%2C+WMO+SYNOP+4680%2C+WMO+4678'),
+    ]
+    dict_['variables'][var_name]['data'] = SYNOP_1hr
+
+    var_name = 'precip_int'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'mm/h'),
+        ('description', 'Precipitation intensity (mm/h). Calculated over last minute.'),
+    ]
+    dict_['variables'][var_name]['data'] = precip_int
+
+    var_name = 'precip_acc'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'mm'),
+        ('description', 'Precipitation accumulation (mm)'),
+    ]
+    dict_['variables'][var_name]['data'] = precip_acc
+
+    var_name = 'snow_acc'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'mm'),
+        ('description', 'Snow accumulation (mm)'),
+    ]
+    dict_['variables'][var_name]['data'] = snow_acc
+
+    var_name = 'amb_temp'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'C'),
+        ('description', 'Ambient temperature (°C). Instant value, updated every 10 seconds'),
+    ]
+    dict_['variables'][var_name]['data'] = amb_temp
+
+    var_name = 'dew_point'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'C'),
+        ('description', 'Dew point temperature (°C). Instant value, updated every 10 seconds'),
+    ]
+    dict_['variables'][var_name]['data'] = dew_point
+
+    var_name = 'RH'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', '%'),
+        ('description', 'Relative humidity (%). Instant value, updated every 10 seconds'),
+    ]
+    dict_['variables'][var_name]['data'] = RH_
+
+    var_name = 'luminance'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'cd/m2'),
+        ('description', 'Background luminance (cd/m2)'),
+    ]
+    dict_['variables'][var_name]['data'] = luminance_
+
+    var_name = 'present_METAR'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'na'),
+        ('description', 'Present METAR according to METAR WMO table 4678. Variable length, 0-12 characters'),
+    ]
+    dict_['variables'][var_name]['data'] = present_METAR
+
+    var_name = 'recent_METAR'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'na'),
+        ('description', 'Recent METAR according to METAR WMO table 4678. ' +
+                        'The prefix RE stands for "recent". Variable length, 0-12 characters'),
+    ]
+    dict_['variables'][var_name]['data'] = recent_METAR
+
+    var_name = 'Z'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time',)
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'dBZ'),
+        ('description', 'Reflectivity (dBZ)'),
+        ('minimum_sensitivity', -9.9),
+    ]
+    dict_['variables'][var_name]['data'] = Ze_
+
+    var_name = 'PSD'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time', 'PSD_bins_means')
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'mm'),
+        ('description', 'Droplet size distribution in size classes 1 - 41'),
+        ('note', 'Note that the bins are not uniform on means or widths, ' +
+                 'For bin edges see variables PSD_bins_mins and PSD_bins_maxs')
+    ]
+    dict_['variables'][var_name]['data'] = PSD_
+
+    var_name = 'KE'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time', )
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'J/m2 * h'),
+        ('description', 'Kinetic energy'),
+    ]
+    dict_['variables'][var_name]['data'] = KE_
+
+    var_name = 'PVD'
+    dict_['variables'][var_name] = {}
+    dict_['variables'][var_name]['dimensions'] = ('time', 'PVD_bins_means')
+    dict_['variables'][var_name]['attributes'] = [
+        ('units', 'm/s'),
+        ('description', 'Droplet fall speed (velocity) distribution'),
+        ('note', 'For bin edges see variables PVD_bins_mins and PVD_bins_maxs')
+    ]
+    dict_['variables'][var_name]['data'] = PVD_
+    if print_debug: print('data formated for output to netcdf')
+
+    # define filename output
+    if use_header_location_in_filename:
+        filename_output = path_output + filename_prefix + site_location + '_'
+    else:
+        filename_output = path_output + filename_prefix
+
+    # add time range to filename_output
+    time_start_str = time_seconds_to_str(time_stamps_msg[0], time_format_parsivel_seconds)
+    time_stop_str = time_seconds_to_str(time_stamps_msg[-1], time_format_parsivel_seconds)
+    filename_output += time_start_str + '_' + time_stop_str + '_.nc'
+    if print_debug: print('output filename defined as ' + filename_output)
+
+    save_dictionary_to_netcdf(dict_, filename_output, print_debug=print_debug)
+
 
 # Holographic microscope
 def convert_raw_to_array(filename_):
