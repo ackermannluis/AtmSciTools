@@ -3613,7 +3613,61 @@ def calculate_liquid_water_terminal_velocity(radious_arr_mm, T_K=293.15, P_hPa=1
     U_t_cms[radious_arr_mm >= 0.02] = U_T_hig[radious_arr_mm >= 0.02]
 
     return U_t_cms / 100
+def calculate_liquid_water_terminal_velocity_mod(radious_arr_mm, T_K=293.15, P_hPa=1013.25):
+    """
+    same as calculate_liquid_water_terminal_velocity but with a fix (9.198 m/s) velocity after 2.726 mm radius
 
+    """
+    radious_arr_cm = radious_arr_mm / 10
+
+    l_o = 6.62e-6  # cm
+    n_o = 1.818e-5  # kg m-1 s-1
+    p_o = 1013.25  # hPa
+    den_o = 1.204  # kg m-3
+
+    n_ = 1.832e-5 * (1 + 0.00266 * (T_K - 296))
+    den_ = 0.348 * P_hPa / T_K
+
+    # 0.001 mm to 0.02 mm
+    c_ = np.array([10.5035, 1.08750, -0.133245, -0.00659969])
+    l_ = l_o * (n_/n_o) * (((p_o * den_o)/(P_hPa * den_))**0.5)
+    f_ = (n_o/n_) * (1 + 1.255 * l_ / radious_arr_cm) / (1 + 1.255 * l_o / radious_arr_cm)
+
+    U_T_low = f_ * e_constant ** (
+            (c_[0] * ((np.log(2 * radious_arr_cm))**1) ) +
+            (c_[1] * ((np.log(2 * radious_arr_cm))**2) ) +
+            (c_[2] * ((np.log(2 * radious_arr_cm))**3) ) +
+            (c_[3] * ((np.log(2 * radious_arr_cm))**4) )
+    )
+
+
+
+
+
+    # 0.02 mm to 3 mm
+    c_ = np.array([6.5639,-1.0391,-1.4001,-0.82736,-0.34277,-0.083072,-0.010583,-0.00054208])
+    e_s = (n_o/n_) - 1
+    e_c = ((den_o/den_) ** 0.5) - 1
+    f_ = 1.104 * e_s + (1.058 * e_c - 1.104 * e_s) * ((6.21 + np.log(radious_arr_cm)) / 5.01) + 1
+
+    U_T_hig = f_ * e_constant ** (
+            (c_[0] * ((np.log(2 * radious_arr_cm))**0) ) +
+            (c_[1] * ((np.log(2 * radious_arr_cm))**1) ) +
+            (c_[2] * ((np.log(2 * radious_arr_cm))**2) ) +
+            (c_[3] * ((np.log(2 * radious_arr_cm))**3) ) +
+            (c_[4] * ((np.log(2 * radious_arr_cm))**4) ) +
+            (c_[5] * ((np.log(2 * radious_arr_cm))**5) ) +
+            (c_[6] * ((np.log(2 * radious_arr_cm))**6) ) +
+            (c_[7] * ((np.log(2 * radious_arr_cm))**7) )
+    )
+
+
+    U_t_cms = U_T_low
+    U_t_cms[radious_arr_mm >= 0.02] = U_T_hig[radious_arr_mm >= 0.02]
+
+    U_t_cms[radious_arr_mm >= 2.726] = 9.198 * 100
+
+    return U_t_cms / 100
 
 
 # unit conversions
