@@ -261,13 +261,13 @@ colors = np.vstack((colors1, colors2))
 cmap_cloud_temp_temp = LinearSegmentedColormap.from_list('my_colormap', colors)
 vmin_cloudT = -40
 vmax_cloudT = 20
-cmap_cloud_temp1 = shiftedColorMap(cmap_cloud_temp_temp, -vmin_cloudT / (-vmin_cloudT +vmax_cloudT),'cmap_cloud_temp1')
-cmap_cloud_temp2 = shiftedColorMap(cm.bwr, -vmin_cloudT / (-vmin_cloudT +vmax_cloudT), 'cmap_cloud_temp2')
+cmap_cloud_temp1 = shiftedColorMap(cmap_cloud_temp_temp, -vmin_cloudT / (-vmin_cloudT +vmax_cloudT), None)#'cmap_cloud_temp1')
+cmap_cloud_temp2 = shiftedColorMap(cm.bwr, -vmin_cloudT / (-vmin_cloudT +vmax_cloudT),  None)#'cmap_cloud_temp2')
 
 cmap_ctt = cmap_cloud_temp1
 
-W_cm = shiftedColorMap(cm.bwr_r, 1/3, 'W_cm')
-W_cm_inverse = shiftedColorMap(cm.bwr, 2/3, 'W_cm_inverse')
+W_cm = shiftedColorMap(cm.bwr_r, 1/3, None)#'W_cm')
+W_cm_inverse = shiftedColorMap(cm.bwr, 2/3, None)#'W_cm_inverse')
 
 
 avogadros_ = 6.022140857E+23 # molecules/mol
