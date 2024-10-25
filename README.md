@@ -30,7 +30,8 @@ Alternatively you can simply run:
 
 or you can use git to download the repository to current folder on terminal by running:
 
-`git clone git@github.com:ackermannluis/AtmSciTools.git`
+`git clone https://github.com/ackermannluis/AtmSciTools.git`
+
 
 
 
