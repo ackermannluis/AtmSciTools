@@ -119,7 +119,7 @@ sys.path.append(AtmSciTools_path)
 tz_UTC = dateutil.tz.gettz('UTC')
 
 try:
-    matplotlib.use('Qt5Agg')
+    matplotlib.use('qtagg')
 except:
     try:
         matplotlib.use('TkAgg')
