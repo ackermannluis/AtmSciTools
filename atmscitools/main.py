@@ -15676,7 +15676,8 @@ def p_plot(X_series, Y_,
            font_size_axes_labels=14, font_size_title=16, font_size_legend=12, font_size_ticks=10, cbar_format='%.2f',
            t_line_text_color='black', vmin_=None, vmax_=None, y_ticks_on_right_side=False, cbar_orient='vertical',
            colorbar_tick_labels_list=None, add_coastlines=False, coastline_color='black',
-           y_err_arr=None, y_err_color='k', fit_function_p0=None, cbar_number_of_colors=None):
+           y_err_arr=None, y_err_color='k', fit_function_p0=None, cbar_number_of_colors=None,
+           colorbar_extend='neither'):
     """
     creates plot
     :param X_series: 1D array with values of x axis
@@ -15746,6 +15747,7 @@ def p_plot(X_series, Y_,
     :param y_err_color: color to be used for the error bars, default is black
     :param fit_function_p0: list with initial guess of fitting variables to be pased to curve_fit
     :param cbar_number_of_colors: int with the number of colors to be used, if none, a continuous color bar is used
+    :param colorbar_extend: string to specify the extend (range) of the colorbar, accepts neither, both, min, or max
     :return: matplotlib figure object, matplotlib axis object, R2 in case a fitting is done otherwise none
     """
     change_font_size_figures(font_size_axes_labels, font_size_title, font_size_legend, font_size_ticks)
@@ -15855,9 +15857,11 @@ def p_plot(X_series, Y_,
                 im.set_rasterized(rasterized_)
                 if show_cbar:
                     if cbar_ax is None:
-                        color_bar = fig.colorbar(im, format=cbar_format, orientation=cbar_orient)
+                        color_bar = fig.colorbar(im, format=cbar_format,
+                                                 orientation=cbar_orient, extend=colorbar_extend)
                     else:
-                        color_bar = fig.colorbar(im, format=cbar_format, cax=cbar_ax, orientation=cbar_orient)
+                        color_bar = fig.colorbar(im, format=cbar_format, cax=cbar_ax,
+                                                 orientation=cbar_orient, extend=colorbar_extend)
                     if c_header is not None:
                         if cbar_orient == 'vertical':
                             color_bar.ax.set_ylabel(c_header)
