@@ -17,7 +17,7 @@ with open(path.join(here, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="atmscitools",
-    version="1.92.0",
+    version="1.93.0",
     description="Atmospheric Science Tools",
     long_description=long_description,
     long_description_content_type="text/markdown",

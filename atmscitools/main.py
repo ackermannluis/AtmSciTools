@@ -40,6 +40,7 @@ from tkinter import filedialog
 from pathlib import Path as Path_pathlib
 import re
 import tempfile
+from pathlib import Path as Path_lib
 
 from PIL import Image as PIL_Image
 from PIL.PngImagePlugin import PngInfo
@@ -12433,7 +12434,7 @@ def merge_multiple_netCDF_by_time_dimension(directory_where_nc_file_are_in_chron
 
     # create copy of first file in a temporary location
     with tempfile.TemporaryDirectory() as tmpdir1_obj:
-        output_path_temp = str(Path(tmpdir1_obj)) + '/'
+        output_path_temp = str(Path_lib(tmpdir1_obj)) + '/'
         output_filename_temp = output_path_temp + 'temp_file_merging.nc'
 
         # check if time dimension is unlimited
