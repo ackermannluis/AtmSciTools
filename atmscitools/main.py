@@ -39,6 +39,7 @@ import math
 from tkinter import filedialog
 from pathlib import Path as Path_pathlib
 import re
+import tempfile
 
 from PIL import Image as PIL_Image
 from PIL.PngImagePlugin import PngInfo
@@ -12365,13 +12366,15 @@ def load_netcdf_to_dictionary(filename_, var_list=None, time_tuple_start_stop_ro
     if print_debug: print('Done!')
 
     return out_dict
+
+
 def merge_multiple_netCDF_by_time_dimension(directory_where_nc_file_are_in_chronological_order, output_path='',
                                             time_variable_name='time', time_dimension_name=None,
                                             vars_to_keep=None, nonTimeVars_check_list=None,
                                             key_search_str='', seek_in_subfolders=False, force_file_list=None,
                                             time_variable_transform_format=None, time_variable_transform_scale=1,
                                             force_output_filename=None, use_file_time_for_name=False,
-                                            output_filename_prefix=''):
+                                            output_filename_prefix='', verbose_=False):
     """
     Merges multiple files of netcdf format into one file with the name of the first file in the list with '_merged'
     :param directory_where_nc_file_are_in_chronological_order: string with the full path of the folder where the files are
@@ -12403,10 +12406,10 @@ def merge_multiple_netCDF_by_time_dimension(directory_where_nc_file_are_in_chron
      If not none, output_path will be ignored.
     :param output_filename_prefix: string used in output filename when output_path and or use_file_time_for_name is set
      unless force_output_filename is set.
+    :param verbose_: bool, if true will print status messages.
     :return:
     """
-    if time_dimension_name is None: time_dimension_name=time_variable_name
-
+    if time_dimension_name is None: time_dimension_name = time_variable_name
 
     if force_file_list is not None:
         file_list_all = sorted(force_file_list)
@@ -12422,203 +12425,217 @@ def merge_multiple_netCDF_by_time_dimension(directory_where_nc_file_are_in_chron
             file_list_all = sorted(glob.glob(str(directory_where_nc_file_are_in_chronological_order
                                                  + '*' + key_search_str + '*.nc')))
 
-    print('Files to be merged (in this order):')
+    if verbose_: print('Files to be merged (in this order):')
     parameter_list = ''
     for i, parameter_ in enumerate(file_list_all):
         parameter_list = str(parameter_list) + str(i) + " ---> " + str(parameter_) + '\n'
-    print(parameter_list)
+    if verbose_: print(parameter_list)
 
-    # create copy of first file
-    if force_output_filename is None:
-        if output_path == '':
-            output_filename = file_list_all[0][:-3] + '_merged.nc'
+    # create copy of first file in a temporary location
+    with tempfile.TemporaryDirectory() as tmpdir1_obj:
+        output_path_temp = str(Path(tmpdir1_obj)) + '/'
+        output_filename_temp = output_path_temp + 'temp_file_merging.nc'
+
+        # check if time dimension is unlimited
+        netcdf_first_file_object = nc.Dataset(file_list_all[0], 'r')
+
+        if netcdf_first_file_object.dimensions[time_dimension_name].size == 0 and vars_to_keep is None:
+            # all good, just make copy of file with output_filename name
+            netcdf_first_file_object.close()
+            shutil.copyfile(file_list_all[0], output_filename_temp)
+            if verbose_: print('first file in merger list has unlimited time dimension, copy created with name:',
+                               output_filename_temp)
         else:
-            output_filename = output_path + file_list_all[0].replace('\\','/').split('/')[-1][:-3] + '_merged.nc'
-    else:
-        output_filename = force_output_filename
+            # not so good, create new file and copy everything from first, make time dimension unlimited...
+            netcdf_output_file_object = nc.Dataset(output_filename_temp, 'w')
+            if verbose_: print(
+                'first file in merger list does not have unlimited time dimension, new file created with name:',
+                output_filename_temp)
 
-    # check if time dimension is unlimited
-    netcdf_first_file_object = nc.Dataset(file_list_all[0], 'r')
+            # copy main attributes
+            attr_list = netcdf_first_file_object.ncattrs()
+            for attr_ in attr_list:
+                netcdf_output_file_object.setncattr(attr_, netcdf_first_file_object.getncattr(attr_))
+            if verbose_: print('main attributes copied')
 
-    if netcdf_first_file_object.dimensions[time_dimension_name].size == 0 and vars_to_keep is None:
-        # all good, just make copy of file with output_filename name
-        netcdf_first_file_object.close()
-        shutil.copyfile(file_list_all[0], output_filename)
-        print('first file in merger list has unlimited time dimension, copy created with name:', output_filename)
-    else:
-        # not so good, create new file and copy everything from first, make time dimension unlimited...
-        netcdf_output_file_object = nc.Dataset(output_filename, 'w')
-        print('first file in merger list does not have unlimited time dimension, new file created with name:',
-              output_filename)
-
-        # copy main attributes
-        attr_list = netcdf_first_file_object.ncattrs()
-        for attr_ in attr_list:
-            netcdf_output_file_object.setncattr(attr_, netcdf_first_file_object.getncattr(attr_))
-        print('main attributes copied')
-
-        # create list for dimensions and variables
-        dimension_names_list = sorted(netcdf_first_file_object.dimensions)
-        if vars_to_keep is None:
-            variable_names_list = sorted(netcdf_first_file_object.variables)
-        else:
-            variable_names_list = vars_to_keep
-
-        # create dimensions
-        for dim_name in dimension_names_list:
-            if dim_name == time_dimension_name:
-                netcdf_output_file_object.createDimension(time_dimension_name, size=0)
-                print(time_dimension_name, 'dimension created')
+            # create list for dimensions and variables
+            dimension_names_list = sorted(netcdf_first_file_object.dimensions)
+            if vars_to_keep is None:
+                variable_names_list = sorted(netcdf_first_file_object.variables)
             else:
-                netcdf_output_file_object.createDimension(dim_name,
-                                                         size=netcdf_first_file_object.dimensions[dim_name].size)
-                print(dim_name, 'dimension created')
+                variable_names_list = vars_to_keep
 
-        # create variables
-        for var_name in variable_names_list:
-
-            if time_variable_transform_format is None or var_name != time_variable_name:
-                # create
-                if netcdf_first_file_object.variables[var_name].dtype == str:
-                    netcdf_output_file_object.createVariable(var_name,
-                                                             netcdf_first_file_object.variables[var_name].dtype,
-                                                             netcdf_first_file_object.variables[var_name].dimensions,
-                                                             fill_value=-9999)
+            # create dimensions
+            for dim_name in dimension_names_list:
+                if dim_name == time_dimension_name:
+                    netcdf_output_file_object.createDimension(time_dimension_name, size=0)
+                    if verbose_: print(time_dimension_name, 'dimension created')
                 else:
+                    netcdf_output_file_object.createDimension(dim_name,
+                                                              size=netcdf_first_file_object.dimensions[dim_name].size)
+                    if verbose_: print(dim_name, 'dimension created')
+
+            # create variables
+            for var_name in variable_names_list:
+
+                if time_variable_transform_format is None or var_name != time_variable_name:
+                    # create
+                    if netcdf_first_file_object.variables[var_name].dtype == str:
+                        netcdf_output_file_object.createVariable(var_name,
+                                                                 netcdf_first_file_object.variables[var_name].dtype,
+                                                                 netcdf_first_file_object.variables[
+                                                                     var_name].dimensions,
+                                                                 fill_value=-9999)
+                    else:
+                        netcdf_output_file_object.createVariable(var_name,
+                                                                 netcdf_first_file_object.variables[var_name].dtype,
+                                                                 netcdf_first_file_object.variables[
+                                                                     var_name].dimensions,
+                                                                 zlib=True, fill_value=-9999)
+                    if verbose_: print(var_name, 'variable created')
+
+                    # copy the attributes
+                    attr_list = netcdf_first_file_object.variables[var_name].ncattrs()
+                    for attr_ in attr_list:
+                        if attr_ == '_FillValue':
+                            pass
+                        else:
+                            netcdf_output_file_object.variables[var_name].setncattr(attr_,
+                                                                                    netcdf_first_file_object.variables[
+                                                                                        var_name].getncattr(attr_))
+                    if verbose_: print('variable attributes copied')
+
+                    # copy the data to the new file
+                    netcdf_output_file_object.variables[var_name][:] = netcdf_first_file_object.variables[var_name][
+                                                                       :].copy()
+                    if verbose_: print('variable data copied')
+
+                    if verbose_: print('-=' * 20)
+                elif time_variable_transform_format is not None and var_name == time_variable_name:
+                    # create
                     netcdf_output_file_object.createVariable(var_name,
                                                              netcdf_first_file_object.variables[var_name].dtype,
                                                              netcdf_first_file_object.variables[var_name].dimensions,
                                                              zlib=True, fill_value=-9999)
-                print(var_name, 'variable created')
-
-                # copy the attributes
-                attr_list = netcdf_first_file_object.variables[var_name].ncattrs()
-                for attr_ in attr_list:
-                    if attr_ == '_FillValue':
-                        pass
-                    else:
-                        netcdf_output_file_object.variables[var_name].setncattr(attr_,
-                                                                                netcdf_first_file_object.variables[
-                                                                                    var_name].getncattr(attr_))
-                print('variable attributes copied')
-
-                # copy the data to the new file
-                netcdf_output_file_object.variables[var_name][:] = netcdf_first_file_object.variables[var_name][:].copy()
-                print('variable data copied')
-
-                print('-=' * 20)
-            elif time_variable_transform_format is not None and var_name == time_variable_name:
-                # create
-                netcdf_output_file_object.createVariable(var_name,
-                                                         netcdf_first_file_object.variables[var_name].dtype,
-                                                         netcdf_first_file_object.variables[var_name].dimensions,
-                                                         zlib=True, fill_value=-9999)
-                print(var_name, 'variable created')
-
-                # copy the attributes
-                attr_list = netcdf_first_file_object.variables[var_name].ncattrs()
-                for attr_ in attr_list:
-                    if attr_ == '_FillValue':
-                        pass
-                    else:
-                        netcdf_output_file_object.variables[var_name].setncattr(attr_,
-                                                                                netcdf_first_file_object.variables[
-                                                                                    var_name].getncattr(attr_))
-                netcdf_output_file_object.variables[var_name].setncattr('units',
-                                                                        'seconds since 1970-01-01T00:00:00Z')
-                print('variable attributes copied')
-
-                # copy the data to the new file
-                time_data = (time_variable_transform_scale * netcdf_first_file_object.variables[var_name][:].copy()) + \
-                            time_str_to_seconds(netcdf_first_file_object.variables[var_name].units,
-                                                time_variable_transform_format)
-                netcdf_output_file_object.variables[var_name][:] = time_data
-                print('variable data copied')
-
-                print('-=' * 20)
-
-
-        # close all files
-        netcdf_output_file_object.close()
-        netcdf_first_file_object.close()
-
-
-    print('starting to copy other files into merged file')
-
-    # open output file for appending data
-    netcdf_output_file_object = nc.Dataset(output_filename, 'a')
-
-    if vars_to_keep is None:
-        vars_list = sorted(netcdf_output_file_object.variables)
-    else:
-        vars_list = vars_to_keep
-
-    for filename_ in file_list_all[1:]:
-
-        print('-' * 5)
-        print('loading file:', filename_)
-
-        # open hourly file
-        netcdf_file_object = nc.Dataset(filename_, 'r')
-        # get time array
-        time_raw = np.array(netcdf_file_object.variables[time_variable_name][:], dtype=float)
-
-        row_start = netcdf_output_file_object.variables[time_variable_name].shape[0]
-        row_end = time_raw.shape[0] + row_start
-
-        if time_variable_transform_format is not None:
-            time_data = (time_variable_transform_scale * time_raw) + \
-                        time_str_to_seconds(netcdf_file_object.variables[time_variable_name].units,
-                                            time_variable_transform_format)
-        else:
-            time_data = time_raw
-
-        # append time array
-        netcdf_output_file_object.variables[time_variable_name][row_start:row_end] = time_data
-
-        # append all other variables that only time dependent
-        for var_name in vars_list:
-            if var_name != time_variable_name:
-                if time_dimension_name in netcdf_output_file_object.variables[var_name].dimensions:
-                    netcdf_output_file_object.variables[var_name][row_start:row_end] = \
-                        netcdf_file_object.variables[var_name][:].copy()
-
-        # check non time dependent variables for consistency
-        vars_list_sub = sorted(netcdf_file_object.variables)
-        if vars_list_sub != sorted(netcdf_first_file_object.variables):
-            print('Alert! Variables in first file are different than other files')
-            print('first file variables:')
-            p_(sorted(netcdf_first_file_object.variables))
-            print(filename_, 'file variables:')
-            p_(vars_list_sub)
-
-        if nonTimeVars_check_list is not None:
-            for var_name in nonTimeVars_check_list:
-                if np.nansum(np.abs(netcdf_file_object.variables[var_name][:].copy() -
-                                    netcdf_output_file_object.variables[var_name][:].copy())) != 0:
-                    print('Alert!', var_name, 'from file:', filename_, 'does not match the first file')
+                    if verbose_: print(var_name, 'variable created')
 
                     # copy the attributes
-                    netcdf_output_file_object.variables[var_name].setncattr(
-                        'values from file ' + filename_, netcdf_file_object.variables[var_name][:].copy()
-                    )
+                    attr_list = netcdf_first_file_object.variables[var_name].ncattrs()
+                    for attr_ in attr_list:
+                        if attr_ == '_FillValue':
+                            pass
+                        else:
+                            netcdf_output_file_object.variables[var_name].setncattr(attr_,
+                                                                                    netcdf_first_file_object.variables[
+                                                                                        var_name].getncattr(attr_))
+                    netcdf_output_file_object.variables[var_name].setncattr('units',
+                                                                            'seconds since 1970-01-01T00:00:00Z')
+                    if verbose_: print('variable attributes copied')
 
-        netcdf_file_object.close()
+                    # copy the data to the new file
+                    time_data = (time_variable_transform_scale * netcdf_first_file_object.variables[var_name][
+                                                                 :].copy()) + \
+                                time_str_to_seconds(netcdf_first_file_object.variables[var_name].units,
+                                                    time_variable_transform_format)
+                    netcdf_output_file_object.variables[var_name][:] = time_data
+                    if verbose_: print('variable data copied')
 
-    netcdf_output_file_object.close()
+                    if verbose_: print('-=' * 20)
 
-    # change output filename if necessary
-    if use_file_time_for_name:
-        with nc.Dataset(output_filename) as file_:
-            time_tmp_day = convert_any_time_type_to_days(file_.variables[time_variable_name][:].filled(np.nan))
-        time_str_start = time_days_to_str(time_tmp_day[0], time_format_YMDHM)
-        time_str_stop = time_days_to_str(time_tmp_day[-1], time_format_YMDHM)
-        new_filename = output_path + output_filename_prefix + '{0}_{1}_.nc'.format(time_str_start, time_str_stop)
-        os.rename(output_filename, new_filename)
-        print('output filename set to ' + new_filename)
+            # close all files
+            netcdf_output_file_object.close()
+            netcdf_first_file_object.close()
 
-    print('done')
+        if verbose_: print('starting to copy other files into merged file')
+
+        # open output file for appending data
+        netcdf_output_file_object = nc.Dataset(output_filename_temp, 'a')
+
+        if vars_to_keep is None:
+            vars_list = sorted(netcdf_output_file_object.variables)
+        else:
+            vars_list = vars_to_keep
+
+        for filename_ in file_list_all[1:]:
+
+            if verbose_: print('-' * 5)
+            if verbose_: print('loading file:', filename_)
+
+            # open hourly file
+            netcdf_file_object = nc.Dataset(filename_, 'r')
+            # get time array
+            time_raw = np.array(netcdf_file_object.variables[time_variable_name][:], dtype=float)
+
+            row_start = netcdf_output_file_object.variables[time_variable_name].shape[0]
+            row_end = time_raw.shape[0] + row_start
+
+            if time_variable_transform_format is not None:
+                time_data = (time_variable_transform_scale * time_raw) + \
+                            time_str_to_seconds(netcdf_file_object.variables[time_variable_name].units,
+                                                time_variable_transform_format)
+            else:
+                time_data = time_raw
+
+            # append time array
+            netcdf_output_file_object.variables[time_variable_name][row_start:row_end] = time_data
+
+            # append all other variables that only time dependent
+            for var_name in vars_list:
+                if var_name != time_variable_name:
+                    if time_dimension_name in netcdf_output_file_object.variables[var_name].dimensions:
+                        netcdf_output_file_object.variables[var_name][row_start:row_end] = \
+                            netcdf_file_object.variables[var_name][:].copy()
+
+            # check non time dependent variables for consistency
+            vars_list_sub = sorted(netcdf_file_object.variables)
+            if vars_list_sub != sorted(netcdf_first_file_object.variables):
+                if verbose_: print('Alert! Variables in first file are different than other files')
+                if verbose_: print('first file variables:')
+                if verbose_: p_(sorted(netcdf_first_file_object.variables))
+                if verbose_: print(filename_, 'file variables:')
+                if verbose_: p_(vars_list_sub)
+
+            if nonTimeVars_check_list is not None:
+                for var_name in nonTimeVars_check_list:
+                    if np.nansum(np.abs(netcdf_file_object.variables[var_name][:].copy() -
+                                        netcdf_output_file_object.variables[var_name][:].copy())) != 0:
+                        if verbose_: print('Alert!', var_name, 'from file:', filename_, 'does not match the first file')
+
+                        # copy the attributes
+                        netcdf_output_file_object.variables[var_name].setncattr(
+                            'values from file ' + filename_, netcdf_file_object.variables[var_name][:].copy()
+                        )
+
+            netcdf_file_object.close()
+
+        netcdf_output_file_object.close()
+
+        # change output filename as necessary
+        if force_output_filename is None:
+            if use_file_time_for_name:
+                with nc.Dataset(output_filename_temp) as file_:
+                    time_tmp_day = convert_any_time_type_to_days(file_.variables[time_variable_name][:].filled(np.nan))
+                time_str_start = time_days_to_str(time_tmp_day[0], time_format_YMDHM)
+                time_str_stop = time_days_to_str(time_tmp_day[-1], time_format_YMDHM)
+                output_filename = output_path + output_filename_prefix + '{0}_{1}_.nc'.format(time_str_start,
+                                                                                              time_str_stop)
+            elif output_path == '':
+                output_filename = file_list_all[0][:-3] + '_merged.nc'
+            else:
+                output_filename = output_path + file_list_all[0].replace('\\', '/').split('/')[-1][:-3] + '_merged.nc'
+        else:
+            output_filename = force_output_filename
+
+        if verbose_: print('output filename set to ' + output_filename)
+
+        shutil.copyfile(output_filename_temp, output_filename)
+        os.remove(output_filename_temp)
+
+        if verbose_: print('done')
+
     return output_filename
+
+
 def compile_WRF_output_files(file_list, output_filename,
                              time_var_name, time_dimension_name,
                              height_dimension_name,
