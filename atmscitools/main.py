@@ -1633,6 +1633,34 @@ def orthogonal_index_to_flat(x_index, y_index, total_number_of_columns):
     return np.array(x_index + (y_index * total_number_of_columns), dtype=int)
 def normalize_prescribed_min_max(arr_, min_, max_):
     return (arr_ - min_) / (max_ - min_)
+def show_counts_per_unique(array_, sort_=True, print_=False):
+    from collections import Counter
+    string_counts = Counter(array_)
+    if sort_:
+        string_list = []
+        count_list = []
+        for string, count in string_counts.items():
+            string_list.append(string)
+            count_list.append(count)
+
+        string_list = np.array(string_list)[np.array(count_list).argsort()[::-1]]
+        count_list = np.array(count_list)[np.array(count_list).argsort()[::-1]]
+        for string, count in zip(string_list, count_list):
+            if print_:
+                print(f"{string}: {count}")
+
+
+    else:
+        string_list = []
+        count_list = []
+        for string, count in string_counts.items():
+            string_list.append(string)
+            count_list.append(count)
+            print(f"{string}: {count}")
+
+    return string_list, count_list
+
+
 
 
 # WRF
@@ -11004,14 +11032,10 @@ def parsivel_estimate_rimed_ratio(PSD_array, precip_type_array):
 
 
     return mid_rimed_ratio, max_rimed_ratio, min_rimed_ratio
-
-
 def calculate_cumulative_precipitation_parsivel(parsivel_precipitation_mm_per_hour, parsivel_time_sec, time_period_str):
     return np.nansum(
         parsivel_precipitation_mm_per_hour[time_to_row_str(parsivel_time_sec, time_period_str.split('_')[0]):
                                            time_to_row_str(parsivel_time_sec, time_period_str.split('_')[1])]) / 60
-
-
 def calculate_D_m(N_D, D_series):
     D_grad = np.gradient(D_series)
     D_m = np.nansum((N_D * (D_series**4) * D_grad))  /  np.nansum((N_D * (D_series ** 3) * D_grad))
@@ -11021,6 +11045,115 @@ def calculate_LWC(N_D, D_series):
     water_density = 1E6 # g/m3
     LWC_ = (np.pi * water_density / 6) *  np.nansum((N_D * (D_series**3) * D_grad))
     return LWC_
+def calculate_liquid_water_terminal_velocity_empirical(diameter_arr_mm):
+    fall_speed_m_per_s = 10.5 - 11 * np.exp(-4.5 * (diameter_arr_mm / 10.))
+
+    slope_small_drops = .387 / .187
+    fall_speed_m_per_s_small_drops = slope_small_drops * diameter_arr_mm
+
+    fall_speed_m_per_s[fall_speed_m_per_s<0]=fall_speed_m_per_s_small_drops[fall_speed_m_per_s<0]
+    return fall_speed_m_per_s
+def calculate_liquid_water_terminal_velocity_empirical_min(diameter_arr_mm):
+    fall_speed_m_per_s = 6 - 9 * np.exp(-4 * (diameter_arr_mm / 10.))
+    fall_speed_m_per_s[fall_speed_m_per_s<0]=0
+    return fall_speed_m_per_s
+def calculate_liquid_water_terminal_velocity_empirical_max(diameter_arr_mm):
+    fall_speed_m_per_s = 12 - 10.3 * np.exp(-9 * (diameter_arr_mm / 10.))
+    fall_speed_m_per_s[fall_speed_m_per_s<0]=0
+    return fall_speed_m_per_s
+def calculate_volume_of_oblate_liquid_drop(maximum_horizontal_diameter_mm):
+    def get_axis_ratio_for_drop_diameters(maximum_horizontal_diameter_mm):
+        def b_a_f_low(d):
+            """
+            for d [0, 1.25)
+            """
+            return -.016 * d + 1
+        def b_a_f_mid(d):
+            """
+            for d [1.25, 9.25]
+            """
+            return -0.06574 * d + 1.057
+        def b_a_f_high(d):
+            """
+            for d (9.25, 12.52]
+            """
+            b_a_f_high = (2.55595364e-05 * d ** 4 - 1.92677045e-03 * d ** 3 + 5.18238620e-02 * d ** 2
+                          - 5.92248004e-01 * d + 2.8308484700798413)
+            return b_a_f_high
+        def b_a_f_end(d):
+            """
+            for d (12.52, infinity)
+            """
+            return np.zeros(len(d)) + 0.386
+
+        b_a_f_l = b_a_f_low(maximum_horizontal_diameter_mm)
+        b_a_f_m = b_a_f_mid(maximum_horizontal_diameter_mm)
+        b_a_f_h = b_a_f_high(maximum_horizontal_diameter_mm)
+        b_a_f_e = b_a_f_end(maximum_horizontal_diameter_mm)
+        mask_l = np.logical_and(0 <= maximum_horizontal_diameter_mm, maximum_horizontal_diameter_mm < 1.25)
+        mask_m = np.logical_and(1.25 <= maximum_horizontal_diameter_mm, maximum_horizontal_diameter_mm <= 9.25)
+        mask_h = np.logical_and(9.25 < maximum_horizontal_diameter_mm, maximum_horizontal_diameter_mm <= 12.52)
+        mask_e = 12.52 < maximum_horizontal_diameter_mm
+        b_a_f = np.zeros(len(maximum_horizontal_diameter_mm))
+
+        b_a_f[mask_l] = b_a_f_l[mask_l]
+        b_a_f[mask_m] = b_a_f_m[mask_m]
+        b_a_f[mask_h] = b_a_f_h[mask_h]
+        b_a_f[mask_e] = b_a_f_e[mask_e]
+        return b_a_f
+
+    b_a = get_axis_ratio_for_drop_diameters(maximum_horizontal_diameter_mm)
+
+    b_ = maximum_horizontal_diameter_mm * b_a
+
+    volume_mm3 = (4/3) * np.pi * ((maximum_horizontal_diameter_mm/2)**2) * (b_/2)
+
+    return volume_mm3
+def calculate_volume_of_sphere(diameter_mm):
+    volume_mm3 = (4 / 3) * np.pi * ((diameter_mm / 2) ** 3)
+    return volume_mm3
+def parsivel_plot_spectrum_counts_new(spectrum_array, title_str=None):
+    size_scale = [0.062, 0.187, 0.312, 0.437, 0.562, 0.687, 0.812, 0.937, 1.062, 1.187, 1.375, 1.625, 1.875,
+                  2.125, 2.375, 2.75, 3.25, 3.75, 4.25, 4.75, 5.5, 6.5, 7.5, 8.5, 9.5, 11, 13, 15, 17, 19, 21.5, 24.5]
+    speed_scale = [0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95, 1.1, 1.3, 1.5, 1.7, 1.9, 2.2, 2.6, 3,
+                   3.4,
+                   3.8, 4.4, 5.2, 6, 6.8, 7.6, 8.8, 10.4, 12, 13.6, 15.2, 17.6, 20.8]
+
+    speed_array = np.zeros((32, 32), dtype=float)
+    size_array = np.zeros((32, 32), dtype=float)
+
+    size_scale_line = np.linspace(0, 25, 100)
+    U_t = calculate_liquid_water_terminal_velocity_empirical(size_scale_line)
+
+    for i in range(32):
+        speed_array[:, i] = speed_scale
+        size_array[i, :] = size_scale
+
+    spectrum_array_nozeros = spectrum_array*1.
+    spectrum_array_nozeros[spectrum_array_nozeros==0]=np.nan
+    o_ = p_plot_arr(spectrum_array_nozeros, size_array, speed_array,
+                    # custom_y_range_tuple=(0,10), custom_x_range_tuple=(0,10),
+                    grid_=True,
+                    x_header='particle size [mm]', y_header='particle speed [m/s]',
+                    cbar_label='particle counts', cbar_format='%.0f',
+                    cbar_number_of_colors=10, cmap_='jet', extend_='max', vmin_=0.5, vmax_=10.5,
+                    figsize_=(12,8),
+                    # colorbar_tick_labels_list=list(np.arange(.5,10.5).astype(str)),
+                    )
+    # Set custom x-ticks and y-ticks on the axis
+    o_[1].set_xticks(series_half_points(size_scale))  # Set x-ticks at the x values
+    plt.setp(o_[1].get_xticklabels(), rotation=90)
+    o_[1].set_yticks(series_half_points(speed_scale))  # Set y-ticks at the y values
+    o_[1].set_ylim((0,10.5))
+    o_[1].set_xlim((0,10))
+
+    o_ = p_plot(size_scale_line, U_t, c_='black', add_line=True, S_=1, fig_ax=o_[:2],
+                title_str=title_str,
+                )
+    fig_adjust(o_[0], right=1.05, top=.95)
+
+    return o_[0], o_[1]
+
 
 # Vaisala
 def convert_vaisala_FD70_raw_to_netcdf_V1(filename_raw, path_output,
@@ -15582,31 +15715,47 @@ def combine_by_index(reference_index, var_index, var_values):
     finds point from var_index to each reference_index point, has to be exact, if not found then nan
     :param reference_index: 1d array
     :param var_index: 1d array of same size as var_values
-    :param var_values: 1d or 2d array of same size as var_index
+    :param var_values: 1d array of same size as var_index
     :return: reindexed_var_values of same size as reference_index
     """
 
-    rows_ = reference_index.shape[0]
-    if len(var_values.shape) == 1:
-        reindexed_var_values = np.zeros(rows_) * np.nan
+    if len(var_values.shape) > 1:
+        raise_error('var_values array is 2D, this is not yet implemented. Get to it...')
 
-        for r_ in range(rows_):
-            p_progress(r_, rows_)
-            where_ = np.where(var_index == reference_index[r_])[0]
-            if len(where_) > 0:
-                reindexed_var_values[r_] = var_values[where_[0]]
 
-        return reindexed_var_values
+    rows_ref = reference_index.shape[0]
+    rows_var = var_index.shape[0]
+
+    # check that both index arrs are ascending
+    if np.nanmin(np.diff(reference_index)) < 0:
+        # sort
+        reference_index_asc = reference_index[reference_index.argsort()]
     else:
-        reindexed_var_values = np.zeros((rows_, var_values.shape[1])) * np.nan
+        reference_index_asc = reference_index
 
-        for r_ in range(rows_):
-            p_progress(r_, rows_)
-            where_ = np.where(var_index == reference_index[r_])[0]
-            if len(where_) > 0:
-                reindexed_var_values[r_, :] = var_values[where_[0], :]
+    if np.nanmin(np.diff(var_index)) < 0:
+        # sort
+        vars_2D_arr_sorted = array_2D_sort_ascending_by_column(np.column_stack((var_index, var_values)))
+        var_index_asc = vars_2D_arr_sorted[: , 0]
+        var_values_asc = vars_2D_arr_sorted[: , 1:]
+    else:
+        var_index_asc = var_index
+        var_values_asc = var_values
 
-        return reindexed_var_values
+    r_ref = -1
+    r_var = -1  # time_to_row_sec(reference_index_asc, var_index_asc[0])
+    output_ref_var = np.zeros(reference_index_asc.shape, dtype=float) * np.nan
+    while r_ref < rows_ref -1:
+        r_ref += 1
+        while r_var < rows_var -1:
+            r_var += 1
+            if var_index_asc[r_var] == reference_index_asc[r_ref]:
+                output_ref_var[r_ref] = var_values_asc[r_var]
+                break
+            elif var_index_asc[r_var] > reference_index_asc[r_ref]:
+                r_var -= 1
+                break
+    return output_ref_var
 def time_seconds_to_days(time_in_seconds):
     try:
         # try array type first
