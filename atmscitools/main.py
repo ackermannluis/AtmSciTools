@@ -5330,6 +5330,537 @@ def era5_get_surface_interpolated_vars(era5_file_levels_ncFile, era5_file_surfac
         era5_file_surface.close()
 
     return surface_t, surface_td, surface_u, surface_v, surface_h, surface_q, time_era5_sec
+def get_era5_gadi_data(variable_name,
+                       time_start_YYYYmmddHH=None, time_stop_YYYYmmddHH=None,
+                       lat_min_max_tuple=None, lon_min_max_tuple=None, level_min_max_tuple=None, verbose_=False):
+    """
+    Retrieve ERA5 reanalysis data from Gadi's supercomputer archive.
+
+    This function extracts specific ERA5 atmospheric or surface data based on the provided parameters, including
+    variable type, spatial region, pressure levels, and temporal range.
+
+    Args:
+        variable_name (str): The name of the variable to retrieve. Must match a key in `era5_name_dict`.
+                             Examples include 't' (temperature) and 'q' (specific humidity).
+        time_start_YYYYmmddHH (str, optional): Start time in the format 'YYYYmmddHH'. Defaults to None
+                                              (includes all times).
+        time_stop_YYYYmmddHH (str, optional): Stop time in the format 'YYYYmmddHH'. Defaults to None
+                                              (includes all times).
+        lat_min_max_tuple (tuple, optional): Latitude range as (min_lat, max_lat). Defaults to None
+                                             (includes all latitudes).
+        lon_min_max_tuple (tuple, optional): Longitude range as (min_lon, max_lon). Defaults to None
+                                             (includes all longitudes).
+        level_min_max_tuple (tuple, optional): Pressure level range as (min_level, max_level).
+                                               Only applicable for pressure-level variables. Defaults to None.
+        verbose_ (bool, optional): If True, prints additional information during execution. Defaults to False.
+
+    Returns:
+        dict: A dictionary containing the requested ERA5 data with the following keys:
+            - 'time_arr' (numpy.ndarray): Array of time steps (in seconds since a reference epoch, i.e. unix time).
+            - 'level_arr' (numpy.ndarray, optional): Array of pressure levels (only for pressure-level variables).
+            - 'lat_arr' (numpy.ndarray): Array of latitude values.
+            - 'lon_arr' (numpy.ndarray): Array of longitude values.
+            - 'desc_' (str): Description of the requested variable.
+            - 'var_type' (str): Type of variable ('pressure' or 'single').
+            - 'data_arr' (numpy.ndarray): Data array for the requested variable.
+
+    Raises:
+        KeyError: If the `variable_name` is not found in `era5_name_dict`.
+        ValueError: If `level_min_max_tuple` is provided for a single-level variable.
+        Exception: For invalid or inconsistent input data.
+
+    Example:
+        Retrieve temperature data for a specific region and time range:
+
+        ```python
+        data = get_era5_gadi_data(
+            variable_name='t',
+            time_start_YYYYmmddHH='2023010100',
+            time_stop_YYYYmmddHH='2023013123',
+            lat_min_max_tuple=(-10, 10),
+            lon_min_max_tuple=(100, 150),
+            level_min_max_tuple=(500, 850),
+            verbose_=True
+        )
+        print(data['data_arr'])
+        ```
+    """
+
+
+    era5_name_dict = {
+        'crwc': ('crwc', 'Specific rain water content', 'pressure'),
+        't': ('t', 'Temperature', 'pressure'),
+        'clwc': ('clwc', 'Specific cloud liquid water content', 'pressure'),
+        'q': ('q', 'Specific humidity', 'pressure'),
+        'w': ('w', 'Vertical velocity', 'pressure'),
+        'cc': ('cc', 'Fraction of cloud cover', 'pressure'),
+        'ciwc': ('ciwc', 'Specific cloud ice water content', 'pressure'),
+        'cswc': ('cswc', 'Specific snow water content', 'pressure'),
+        'vo': ('vo', 'Vorticity (relative)', 'pressure'),
+        'o3': ('o3', 'Ozone mass mixing ratio', 'pressure'),
+        'v': ('v', 'V component of wind', 'pressure'),
+        'z': ('z', 'Geopotential', 'pressure'),
+        'pv': ('pv', 'Potential vorticity', 'pressure'),
+        'd': ('d', 'Divergence', 'pressure'),
+        'u': ('u', 'U component of wind', 'pressure'),
+        'r': ('r', 'Relative humidity', 'pressure'),
+        'lssfr': ('lssfr', 'Large scale snowfall rate water equivalent', 'single'),
+        'mlssr': ('mlssr', 'Mean large-scale snowfall rate', 'single'),
+        'viman': ('p66.162', 'Vertical integral of northward mass flux', 'single'),
+        'mp1': ('mp1', 'Mean wave period based on first moment', 'single'),
+        'tvl': ('tvl', 'Type of low vegetation', 'single'),
+        'src': ('src', 'Skin reservoir content', 'single'),
+        'deg0l': ('deg0l', '0 degrees C isothermal level (atm)', 'single'),
+        'skt': ('skt', 'Skin temperature', 'single'),
+        '100v': ('v100', '100 metre V wind component', 'single'),
+        'viiwn': ('p91.162', 'Vertical integral of northward cloud frozen water flux ', 'single'),
+        'aluvp': ('aluvp', 'UV visible albedo for direct radiation', 'single'),
+        'mvimd': ('mvimd', 'Mean vertically integrated moisture divergence', 'single'),
+        'wss': ('wss', 'Wave Spectral Skewness', 'single'),
+        'vst': ('vst', 'V-component stokes drift', 'single'),
+        'vimd': ('vimd', 'Vertically integrated moisture divergence', 'single'),
+        'ishf': ('ishf', 'Instantaneous surface sensible heat flux', 'single'),
+        'chnk': ('chnk', 'Charnock', 'single'),
+        'rhoao': ('p140209', 'Air density over the oceans', 'single'),
+        'sd': ('sd', 'Snow depth', 'single'),
+        'mx2t': ('mx2t', 'Maximum temperature at 2 metres since previous post-processing', 'single'),
+        'str': ('str', 'Surface net thermal radiation', 'single'),
+        'ewss': ('ewss', 'Eastward turbulent surface stress', 'single'),
+        '10fg': ('fg10', '10 metre wind gust since previous post-processing', 'single'),
+        'mntss': ('mntss', 'Mean northward turbulent surface stress', 'single'),
+        'tco3': ('tco3', 'Total column ozone', 'single'),
+        'swvl1': ('swvl1', 'Volumetric soil water layer 1', 'single'),
+        'ttrc': ('ttrc', 'Top net thermal radiation, clear sky', 'single'),
+        'mlspr': ('mlspr', 'Mean large-scale precipitation rate', 'single'),
+        'ssr': ('ssr', 'Surface net solar radiation', 'single'),
+        'mtdwswrf': ('mtdwswrf', 'Mean top downward short-wave radiation flux', 'single'),
+        'vimad': ('p81.162', 'Vertical integral of divergence of mass flux', 'single'),
+        'vithen': ('p70.162', 'Vertical integral of northward heat flux', 'single'),
+        'dctb': ('dctb', 'Duct base height', 'single'),
+        'alnip': ('alnip', 'Near IR albedo for direct radiation', 'single'),
+        'cbh': ('cbh', 'Cloud base height', 'single'),
+        'fdir': ('fdir', 'Total sky direct solar radiation at surface', 'single'),
+        'sshf': ('sshf', 'Surface sensible heat flux', 'single'),
+        'i10fg': ('i10fg', 'Instantaneous 10 metre wind gust', 'single'),
+        'lblt': ('lblt', 'Lake bottom temperature', 'single'),
+        'swvl4': ('swvl4', 'Volumetric soil water layer 4', 'single'),
+        '10u': ('u10', '10 metre U wind component', 'single'),
+        'mwp1': ('p140123', 'Mean wave period of first swell partition', 'single'),
+        'megwss': ('megwss', 'Mean eastward gravity wave surface stress', 'single'),
+        'ltlt': ('ltlt', 'Lake total layer temperature', 'single'),
+        'dwps': ('dwps', 'Wave spectral directional width for swell', 'single'),
+        'e': ('e', 'Evaporation', 'single'),
+        'lgws': ('lgws', 'Eastward gravity wave surface stress', 'single'),
+        'msdrswrf': ('msdrswrf', 'Mean surface direct short-wave radiation flux', 'single'),
+        'stl4': ('stl4', 'Soil temperature level 4', 'single'),
+        'strd': ('strd', 'Surface thermal radiation downwards', 'single'),
+        'ptype': ('ptype', 'Precipitation type', 'single'),
+        'viwvn': ('p72.162', 'Vertical integral of northward water vapour flux', 'single'),
+        'csfr': ('csfr', 'Convective snowfall rate water equivalent', 'single'),
+        'mssror': ('mssror', 'Mean sub-surface runoff rate', 'single'),
+        'gwd': ('gwd', 'Gravity wave dissipation', 'single'),
+        'vitoen': ('p76.162', 'Vertical integral of northward total energy flux', 'single'),
+        'cvh': ('cvh', 'High vegetation cover', 'single'),
+        'lmlt': ('lmlt', 'Lake mix-layer temperature', 'single'),
+        'istl3': ('istl3', 'Ice temperature layer 3', 'single'),
+        'p2ww': ('p2ww', 'Mean wave period based on second moment for wind waves', 'single'),
+        'tcsw': ('tcsw', 'Total column snow water', 'single'),
+        'p1ps': ('p1ps', 'Mean wave period based on first moment for swell', 'single'),
+        'vima': ('p53.162', 'Vertical integral of mass of atmosphere', 'single'),
+        'vithe': ('p60.162', 'Vertical integral of thermal energy', 'single'),
+        'msqs': ('msqs', 'Mean square slope of waves', 'single'),
+        'lai-hv': ('lai_hv', 'Leaf area index, high vegetation', 'single'),
+        'tcw': ('tcw', 'Total column water', 'single'),
+        'ssrd': ('ssrd', 'Surface solar radiation downwards', 'single'),
+        'mxtpr': ('mxtpr', 'Maximum total precipitation rate since previous post-processing', 'single'),
+        'uvb': ('uvb', 'Downward UV radiation at the surface', 'single'),
+        'acwh': ('acwh', 'Altimeter corrected wave height', 'single'),
+        'vipie': ('p61.162', 'Vertical integral of potential+internal energy', 'single'),
+        'mcpr': ('mcpr', 'Mean convective precipitation rate', 'single'),
+        'slt': ('slt', 'Soil type', 'single'),
+        'msl': ('msl', 'Mean sea level pressure', 'single'),
+        'mer': ('mer', 'Mean evaporation rate', 'single'),
+        'totalx': ('totalx', 'Total totals index', 'single'),
+        'swh': ('swh', 'Significant height of combined wind waves and swell', 'single'),
+        'sst': ('sst', 'Sea surface temperature', 'single'),
+        'mpww': ('mpww', 'Mean period of wind waves', 'single'),
+        'vithee': ('p69.162', 'Vertical integral of eastward heat flux', 'single'),
+        'tsn': ('tsn', 'Temperature of snow layer', 'single'),
+        '100u': ('u100', '100 metre U wind component', 'single'),
+        'dwww': ('dwww', 'Wave spectral directional width for wind waves', 'single'),
+        'tciw': ('tciw', 'Total column cloud ice water', 'single'),
+        'blh': ('blh', 'Boundary layer height', 'single'),
+        'vimat': ('p92.162', 'Vertical integral of mass tendency', 'single'),
+        'tclw': ('tclw', 'Total column cloud liquid water', 'single'),
+        'mwp': ('mwp', 'Mean wave period', 'single'),
+        'hcc': ('hcc', 'High cloud cover', 'single'),
+        'mp2': ('mp2', 'Mean zero-crossing wave period', 'single'),
+        'ilspf': ('ilspf', 'Instantaneous large-scale surface precipitation fraction', 'single'),
+        'cp': ('cp', 'Convective precipitation', 'single'),
+        'nsss': ('nsss', 'Northward turbulent surface stress', 'single'),
+        'pev': ('pev', 'Potential evaporation', 'single'),
+        'viwve': ('p71.162', 'Vertical integral of eastward water vapour flux', 'single'),
+        'istl2': ('istl2', 'Ice temperature layer 2', 'single'),
+        'msr': ('msr', 'Mean snowfall rate', 'single'),
+        'wdw': ('wdw', 'Wave spectral directional width', 'single'),
+        'viec': ('p64.162', 'Vertical integral of energy conversion', 'single'),
+        'vioze': ('p77.162', 'Vertical integral of eastward ozone flux', 'single'),
+        'mtnlwrfcs': ('mtnlwrfcs', 'Mean top net long-wave radiation flux, clear sky', 'single'),
+        'mdts': ('mdts', 'Mean direction of total swell', 'single'),
+        'licd': ('licd', 'Lake ice depth', 'single'),
+        'msnswrfcs': ('msnswrfcs', 'Mean surface net short-wave radiation flux, clear sky', 'single'),
+        'strdc': ('strdc', 'Surface thermal radiation downward clear-sky', 'single'),
+        'mwp3': ('p140129', 'Mean wave period of third swell partition', 'single'),
+        'stl1': ('stl1', 'Soil temperature level 1', 'single'),
+        'awh': ('awh', 'Altimeter wave height', 'single'),
+        'ro': ('ro', 'Runoff', 'single'),
+        'alnid': ('alnid', 'Near IR albedo for diffuse radiation', 'single'),
+        'sf': ('sf', 'Snowfall', 'single'),
+        'iews': ('iews', 'Instantaneous eastward turbulent surface stress', 'single'),
+        'bld': ('bld', 'Boundary layer dissipation', 'single'),
+        'zust': ('zust', 'Friction velocity', 'single'),
+        'aluvd': ('aluvd', 'UV visible albedo for diffuse radiation', 'single'),
+        'inss': ('inss', 'Instantaneous northward turbulent surface stress', 'single'),
+        'wmb': ('wmb', 'Model bathymetry', 'single'),
+        'msdwswrfcs': ('msdwswrfcs', 'Mean surface downward short-wave radiation flux, clear sky', 'single'),
+        'mtpr': ('mtpr', 'Mean total precipitation rate', 'single'),
+        'swvl3': ('swvl3', 'Volumetric soil water layer 3', 'single'),
+        'tmax': ('tmax', 'Period corresponding to maximum individual wave height', 'single'),
+        'mwp2': ('p140126', 'Mean wave period of second swell partition', 'single'),
+        'crr': ('crr', 'Convective rain rate', 'single'),
+        'cl': ('cl', 'Lake cover', 'single'),
+        'cdww': ('cdww', 'Coefficient of drag with waves', 'single'),
+        'lcc': ('lcc', 'Low cloud cover', 'single'),
+        'tsr': ('tsr', 'Top net solar radiation', 'single'),
+        'mcsr': ('mcsr', 'Mean convective snowfall rate', 'single'),
+        'tcslw': ('tcslw', 'Total column supercooled liquid water', 'single'),
+        'vitoee': ('p75.162', 'Vertical integral of eastward total energy flux', 'single'),
+        'ssrdc': ('ssrdc', 'Surface solar radiation downward clear-sky', 'single'),
+        'flsr': ('flsr', 'Forecast logarithm of surface roughness for heat', 'single'),
+        'ust': ('ust', 'U-component stokes drift', 'single'),
+        'fsr': ('fsr', 'Forecast surface roughness', 'single'),
+        'msnlwrfcs': ('msnlwrfcs', 'Mean surface net long-wave radiation flux, clear sky', 'single'),
+        'tauoc': ('tauoc', 'Normalized stress into ocean', 'single'),
+        'lsrr': ('lsrr', 'Large scale rain rate', 'single'),
+        'vign': ('p74.162', 'Vertical integral of northward geopotential flux', 'single'),
+        'vike': ('p59.162', 'Vertical integral of kinetic energy', 'single'),
+        'asn': ('asn', 'Snow albedo', 'single'),
+        'vige': ('p73.162', 'Vertical integral of eastward geopotential flux', 'single'),
+        'mbld': ('mbld', 'Mean boundary layer dissipation', 'single'),
+        'msror': ('msror', 'Mean surface runoff rate', 'single'),
+        'vigd': ('p85.162', 'Vertical integral of divergence of geopotential flux', 'single'),
+        'tp': ('tp', 'Total precipitation', 'single'),
+        'vikee': ('p67.162', 'Vertical integral of eastward kinetic energy flux', 'single'),
+        'vilwe': ('p88.162', 'Vertical integral of eastward cloud liquid water flux', 'single'),
+        'dndza': ('dndza', 'Mean vertical gradient of refractivity inside trapping layer', 'single'),
+        'swh2': ('p140124', 'Significant wave height of second swell partition', 'single'),
+        'v10n': ('v10n', 'Neutral wind at 10 m v-component', 'single'),
+        'swh1': ('p140121', 'Significant wave height of first swell partition', 'single'),
+        'mn2t': ('mn2t', 'Minimum temperature at 2 metres since previous post-processing', 'single'),
+        'msdrswrfcs': ('msdrswrfcs', 'Mean surface direct short-wave radiation flux, clear sky', 'single'),
+        'mtnswrfcs': ('mtnswrfcs', 'Mean top net short-wave radiation flux, clear sky', 'single'),
+        'lshf': ('lshf', 'Lake shape factor', 'single'),
+        'istl1': ('istl1', 'Ice temperature layer 1', 'single'),
+        '2d': ('d2m', '2 metre dewpoint temperature', 'single'),
+        'mpts': ('mpts', 'Mean period of total swell', 'single'),
+        'tplt': ('tplt', 'Trapping layer top height', 'single'),
+        '10v': ('v10', '10 metre V wind component', 'single'),
+        'mntpr': ('mntpr', 'Minimum total precipitation rate since previous post-processing', 'single'),
+        'vilwd': ('p79.162', 'Vertical integral of divergence of cloud liquid water flux', 'single'),
+        'shww': ('shww', 'Significant height of wind waves', 'single'),
+        'viiwe': ('p90.162', 'Vertical integral of eastward cloud frozen water flux', 'single'),
+        'bfi': ('bfi', 'Benjamin-Feir index', 'single'),
+        'mper': ('mper', 'Mean potential evaporation rate', 'single'),
+        'vilwn': ('p89.162', 'Vertical integral of northward cloud liquid water flux', 'single'),
+        'fal': ('fal', 'Forecast albedo', 'single'),
+        'anor': ('anor', 'Angle of sub-gridscale orography', 'single'),
+        'tcc': ('tcc', 'Total cloud cover', 'single'),
+        'mwd1': ('p140122', 'Mean wave direction of first swell partition', 'single'),
+        'wsk': ('wsk', 'Wave spectral kurtosis', 'single'),
+        'msnlwrf': ('msnlwrf', 'Mean surface net long-wave radiation flux', 'single'),
+        'msmr': ('msmr', 'Mean snowmelt rate', 'single'),
+        'ttr': ('ttr', 'Top net thermal radiation', 'single'),
+        'swvl2': ('swvl2', 'Volumetric soil water layer 2', 'single'),
+        'ssro': ('ssro', 'Sub-surface runoff', 'single'),
+        'sdfor': ('sdfor', 'Standard deviation of filtered subgrid orography', 'single'),
+        'viiwd': ('p80.162', 'Vertical integral of divergence of cloud frozen water flux', 'single'),
+        'sp': ('sp', 'Surface pressure', 'single'),
+        'msdwswrf': ('msdwswrf', 'Mean surface downward short-wave radiation flux', 'single'),
+        'viwvd': ('p84.162', 'Vertical integral of divergence of moisture flux', 'single'),
+        'p1ww': ('p1ww', 'Mean wave period based on first moment for wind waves', 'single'),
+        'wstar': ('p140208', 'Free convective velocity over the oceans', 'single'),
+        'ssrc': ('ssrc', 'Surface net solar radiation, clear sky', 'single'),
+        'smlt': ('smlt', 'Snowmelt', 'single'),
+        'arrc': ('arrc', 'Altimeter range relative correction', 'single'),
+        'tisr': ('tisr', 'TOA incident solar radiation', 'single'),
+        'wsp': ('wsp', 'Wave spectral peakedness', 'single'),
+        'cape': ('cape', 'Convective available potential energy', 'single'),
+        'isor': ('isor', 'Anisotropy of sub-gridscale orography', 'single'),
+        'tsrc': ('tsrc', 'Top net solar radiation, clear sky', 'single'),
+        'slhf': ('slhf', 'Surface latent heat flux', 'single'),
+        'mror': ('mror', 'Mean runoff rate', 'single'),
+        'vitoed': ('p86.162', 'Vertical integral of divergence of total energy flux', 'single'),
+        'lsp': ('lsp', 'Large-scale precipitation', 'single'),
+        'cin': ('cin', 'Convective inhibition', 'single'),
+        'lsf': ('lsf', 'Large-scale snowfall', 'single'),
+        'vimae': ('p65.162', 'Vertical integral of eastward mass flux', 'single'),
+        'tcwv': ('tcwv', 'Total column water vapour', 'single'),
+        'viken': ('p68.162', 'Vertical integral of northward kinetic energy flux', 'single'),
+        'tvh': ('tvh', 'Type of high vegetation', 'single'),
+        'lai-lv': ('lai_lv', 'Leaf area index, low vegetation', 'single'),
+        'msdwuvrf': ('msdwuvrf', 'Mean surface downward UV radiation flux', 'single'),
+        'ie': ('ie', 'Instantaneous moisture flux', 'single'),
+        'strc': ('strc', 'Surface net thermal radiation, clear sky', 'single'),
+        'mser': ('mser', 'Mean snow evaporation rate', 'single'),
+        'mdww': ('mdww', 'Mean direction of wind waves', 'single'),
+        'rsn': ('rsn', 'Snow density', 'single'),
+        'tcrw': ('tcrw', 'Total column rain water', 'single'),
+        'vithed': ('p83.162', 'Vertical integral of divergence of thermal energy flux', 'single'),
+        'mcc': ('mcc', 'Medium cloud cover', 'single'),
+        'lsm': ('lsm', 'Land-sea mask', 'single'),
+        'u10n': ('u10n', 'Neutral wind at 10 m u-component', 'single'),
+        'cdir': ('cdir', 'Clear-sky direct solar radiation at surface', 'single'),
+        'cvl': ('cvl', 'Low vegetation cover', 'single'),
+        'csf': ('csf', 'Convective snowfall', 'single'),
+        'mtnlwrf': ('mtnlwrf', 'Mean top net long-wave radiation flux', 'single'),
+        'kx': ('kx', 'K index', 'single'),
+        'viozd': ('p87.162', 'Vertical integral of divergence of ozone flux', 'single'),
+        'vitoe': ('p63.162', 'Vertical integral of total energy', 'single'),
+        'sro': ('sro', 'Surface runoff', 'single'),
+        'shts': ('shts', 'Significant height of total swell', 'single'),
+        'mgws': ('mgws', 'Northward gravity wave surface stress', 'single'),
+        'lspf': ('lspf', 'Large-scale precipitation fraction', 'single'),
+        'dl': ('dl', 'Lake depth', 'single'),
+        'vit': ('p54.162', 'Vertical integral of temperature', 'single'),
+        'mwd3': ('p140128', 'Mean wave direction of third swell partition', 'single'),
+        '2t': ('t2m', '2 metre temperature', 'single'),
+        'slor': ('slor', 'Slope of sub-gridscale orography', 'single'),
+        'swh3': ('p140127', 'Significant wave height of third swell partition', 'single'),
+        'lmld': ('lmld', 'Lake mix-layer depth', 'single'),
+        'istl4': ('istl4', 'Ice temperature layer 4', 'single'),
+        'ci': ('siconc', 'Sea ice area fraction', 'single'),
+        'mngwss': ('mngwss', 'Mean northward gravity wave surface stress', 'single'),
+        'mgwd': ('mgwd', 'Mean gravity wave dissipation', 'single'),
+        'mwd': ('mwd', 'Mean wave direction', 'single'),
+        'lict': ('lict', 'Lake ice temperature', 'single'),
+        'pp1d': ('pp1d', 'Peak wave period', 'single'),
+        'vipile': ('p62.162', 'Vertical integral of potential+internal+latent energy', 'single'),
+        'hmax': ('hmax', 'Maximum individual wave height', 'single'),
+        'viozn': ('p78.162', 'Vertical integral of northward ozone flux', 'single'),
+        'stl3': ('stl3', 'Soil temperature level 3', 'single'),
+        'viked': ('p82.162', 'Vertical integral of divergence of kinetic energy flux', 'single'),
+        'mtnswrf': ('mtnswrf', 'Mean top net short-wave radiation flux', 'single'),
+        'dwi': ('dwi', '10 metre wind direction', 'single'),
+        'p2ps': ('p2ps', 'Mean wave period based on second moment for swell', 'single'),
+        'wind': ('wind', '10 metre wind speed', 'single'),
+        'sdor': ('sdor', 'Standard deviation of orography', 'single'),
+        'mlspf': ('mlspf', 'Mean large-scale precipitation fraction', 'single'),
+        'tplb': ('tplb', 'Trapping layer base height', 'single'),
+        'mwd2': ('p140125', 'Mean wave direction of second swell partition', 'single'),
+        'mslhf': ('mslhf', 'Mean surface latent heat flux', 'single'),
+        'msdwlwrfcs': ('msdwlwrfcs', 'Mean surface downward long-wave radiation flux, clear sky', 'single'),
+        'es': ('es', 'Snow evaporation', 'single'),
+        'msnswrf': ('msnswrf', 'Mean surface net short-wave radiation flux', 'single'),
+        'stl2': ('stl2', 'Soil temperature level 2', 'single'),
+        'metss': ('metss', 'Mean eastward turbulent surface stress', 'single'),
+        'dndzn': ('dndzn', 'Minimum vertical gradient of refractivity inside trapping layer', 'single'),
+        'phioc': ('phioc', 'Normalized energy flux into ocean', 'single'),
+        'msshf': ('msshf', 'Mean surface sensible heat flux', 'single'),
+        'phiaw': ('phiaw', 'Normalized energy flux into waves', 'single'),
+        'msdwlwrf': ('msdwlwrf', 'Mean surface downward long-wave radiation flux', 'single'),
+
+    }
+
+    # get the filename variable name and the in-file variable name
+    variable_name_infile, desc_, var_type = era5_name_dict[variable_name]
+    data_path = f'/g/data/rt52/era5/{var_type}-levels/reanalysis/{variable_name}/'
+    if verbose_:
+        print(f"variable: {variable_name}, in-file variable name: {variable_name_infile}, variable type: {var_type}")
+
+    if var_type == 'single' and level_min_max_tuple is not None:
+        raise_error('The variable name provided is a single level variable but level min max tuple was provided.')
+
+    # get file list
+    filename_list = list_files_recursive(data_path)
+    if verbose_:
+        print(f"{len(filename_list)} files found for this variable")
+
+    # get file list times
+    filename_time_start = []
+    filename_time_stop = []
+    for filename_ in filename_list:
+        filename_time_start.append(time_str_to_seconds(filename_.split('_')[-1].split('-')[0], time_format_YMD))
+        filename_time_stop.append(time_str_to_seconds(filename_.split('_')[-1].split('-')[1][:-3], time_format_YMD)+
+                                  (24*60*60))
+    filename_time_start = np.array(filename_time_start)
+    filename_time_stop = np.array(filename_time_stop)
+
+    # get filename range
+    if time_start_YYYYmmddHH is not None:
+        time_start_sec = time_str_to_seconds(time_start_YYYYmmddHH, '%Y%m%d%H')
+        index_filename_start = time_to_row_sec(filename_time_start, time_start_sec)
+        if filename_time_start[index_filename_start] > time_start_sec:
+            index_filename_start -= 1
+            if index_filename_start < 0:
+                index_filename_start = 0
+    else:
+        index_filename_start = 0
+    if time_stop_YYYYmmddHH is not None:
+        time_stop_sec = time_str_to_seconds(time_stop_YYYYmmddHH, '%Y%m%d%H')
+        index_filename_stop = time_to_row_sec(filename_time_stop, time_stop_sec)
+        if filename_time_stop[index_filename_stop] <= time_stop_sec:
+            index_filename_stop += 1
+            if index_filename_stop >= len(filename_list) - 1:
+                index_filename_stop = len(filename_list) - 1
+    else:
+        index_filename_stop = len(filename_list) - 1
+    # get file list
+    file_list = filename_list[index_filename_start:index_filename_stop+1]
+    if verbose_:
+        print(f"{len(file_list)} files found for the specified time range")
+
+    # get levels index
+    if var_type == 'pressure':
+        with nc.Dataset(file_list[0]) as file_:
+            level_arr_full = file_.variables['level'][:].data
+        if level_min_max_tuple is not None:
+            level_start, level_stop = level_min_max_tuple
+            level_index_start = time_to_row_sec(level_arr_full, level_start)
+            if level_arr_full[level_index_start] > level_start:
+                level_index_start -= 1
+                if level_index_start < 0:
+                    level_index_start = 0
+            level_index_stop = time_to_row_sec(level_arr_full, level_stop)
+            if level_arr_full[level_index_stop] < level_stop:
+                level_index_stop += 1
+                if level_index_stop > level_arr_full.size:
+                    level_index_stop = level_arr_full.size - 1
+        else:
+            level_index_start = 0
+            level_index_stop = level_arr_full.size - 1
+        # crop level array
+        level_arr = level_arr_full[level_index_start:level_index_stop+1]
+        if verbose_:
+            print(f"level array loaded and cropped, resulting shape: {level_arr.shape}, min value: {np.min(level_arr)},"
+                  f" max value: {np.max(level_arr)}")
+
+    # get spatial domain indexes
+    with nc.Dataset(file_list[0]) as file_:
+        lat_arr_full = file_.variables['latitude'][:].data
+        lon_arr_full = file_.variables['longitude'][:].data
+    # lat
+    if lat_min_max_tuple is not None:
+        lat_start, lat_stop = lat_min_max_tuple
+        lat_index_start = time_to_row_sec(lat_arr_full, lat_start)
+        if lat_arr_full[lat_index_start] > lat_start:
+            lat_index_start += 1
+            if lat_index_start > lat_arr_full.size:
+                lat_index_start = lat_arr_full.size - 1
+        lat_index_stop = time_to_row_sec(lat_arr_full, lat_stop)
+        if lat_arr_full[lat_index_stop] < lat_stop:
+            lat_index_stop -= 1
+            if lat_index_stop < 0:
+                lat_index_stop = 0
+    else:
+        lat_index_start = lat_arr_full.size - 1
+        lat_index_stop = 0
+    # crop lat array
+    lat_arr = lat_arr_full[lat_index_stop:lat_index_start+1]  # inverted because the era5 lat array is decreasing
+    if verbose_:
+        print(f"latitude array loaded and cropped, resulting shape: {lat_arr.shape}, min value: {np.min(lat_arr)},"
+              f" max value: {np.max(lat_arr)}")
+    # lon
+    if lon_min_max_tuple is not None:
+        lon_start, lon_stop = lon_min_max_tuple
+        lon_index_start = time_to_row_sec(lon_arr_full, lon_start)
+        if lon_arr_full[lon_index_start] > lon_start:
+            lon_index_start -= 1
+            if lon_index_start < 0:
+                lon_index_start = 0
+        lon_index_stop = time_to_row_sec(lon_arr_full, lon_stop)
+        if lon_arr_full[lon_index_stop] < lon_stop:
+            lon_index_stop += 1
+            if lon_index_stop > lon_arr_full.size:
+                lon_index_stop = lon_arr_full.size - 1
+    else:
+        lon_index_start = 0
+        lon_index_stop = lon_arr_full.size - 1
+    # crop lon array
+    lon_arr = lon_arr_full[lon_index_start:lon_index_stop+1]
+    if verbose_:
+        print(f"longitude array loaded and cropped, resulting shape: {lon_arr.shape}, min value: {np.min(lon_arr)},"
+              f" max value: {np.max(lon_arr)}")
+    # get data array
+    time_arr_list = []
+    data_arr_list = []
+    for filename_ in file_list:
+        # get intra file time
+        with nc.Dataset(filename_) as file_:
+            time_arr_temp_full = time_era5_to_seconds(file_.variables['time'][:].data)
+        if time_start_YYYYmmddHH is not None:
+            time_start_sec = time_str_to_seconds(time_start_YYYYmmddHH, '%Y%m%d%H')
+            index_time_start = time_to_row_sec(time_arr_temp_full, time_start_sec)
+            if time_arr_temp_full[index_time_start] > time_start_sec:
+                index_time_start -= 1
+                if index_time_start < 0:
+                    index_time_start = 0
+        else:
+            index_time_start = 0
+        if time_stop_YYYYmmddHH is not None:
+            time_stop_sec = time_str_to_seconds(time_stop_YYYYmmddHH, '%Y%m%d%H')
+            index_time_stop = time_to_row_sec(time_arr_temp_full, time_stop_sec)
+            if time_arr_temp_full[index_time_stop] <= time_stop_sec:
+                index_time_stop += 1
+                if index_time_stop >= time_arr_temp_full.size - 1:
+                    index_time_stop = time_arr_temp_full.size - 1
+        else:
+            index_time_stop = time_arr_temp_full.size - 1
+        # crop time and store in list
+        time_arr_list.append(time_arr_temp_full[index_time_start:index_time_stop + 1])
+
+        # get intra file data and store in list
+        with nc.Dataset(filename_) as file_:
+            if var_type == 'pressure':
+                data_arr_list.append(file_.variables[variable_name_infile][
+                                     index_time_start:index_time_stop + 1,
+                                     level_index_start:level_index_stop + 1,
+                                     lat_index_stop:lat_index_start + 1,
+                                     lon_index_start:lon_index_stop + 1
+                                     ].data)
+            else:
+                data_arr_list.append(file_.variables[variable_name_infile][
+                                     index_time_start:index_time_stop + 1,
+                                     lat_index_stop:lat_index_start + 1,
+                                     lon_index_start:lon_index_stop + 1
+                                     ].data)
+
+    # define output dict
+    if var_type == 'pressure':
+        output_dict = {
+            'time_arr':np.concatenate(time_arr_list, axis=0),
+            'level_arr':level_arr,
+            'lat_arr':lat_arr,
+            'lon_arr':lon_arr,
+            'desc_':desc_,
+            'var_type':var_type,
+            'data_arr': np.concatenate(data_arr_list, axis=0),
+        }
+    else:
+        output_dict = {
+            'time_arr':np.concatenate(time_arr_list, axis=0),
+            'lat_arr':lat_arr,
+            'lon_arr':lon_arr,
+            'desc_':desc_,
+            'var_type':var_type,
+            'data_arr': np.concatenate(data_arr_list, axis=0),
+        }
+    if verbose_:
+        print(f"final time loaded and cropped, resulting shape: {output_dict['time_arr'].shape},"
+              f" min value: {time_seconds_to_str(np.min(output_dict['time_arr']), time_format_easy)},"
+              f" max value: {time_seconds_to_str(np.max(output_dict['time_arr']), time_format_easy)}")
+        print(f"final data loaded and cropped, resulting shape: {output_dict['data_arr'].shape}")
+
+    return  output_dict
 
 
 
