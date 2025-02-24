@@ -7702,6 +7702,33 @@ def calculate_SHI_from_radar_PPI(radar_obj, radar_id, height_0C, height_m20C,
     Ze_max_2D = Ze_max_flat.reshape((Y_.shape[0], X_.shape[0]))
 
     return SHI_2D, Ze_max_2D, X_, Y_, grid_lon, grid_lat
+def radar_detail_csv_to_dict(filename_csv, filename_dict):
+
+
+    # load csv
+    csv_data = open_csv_file(filename_csv)
+
+    # get list of fields
+    field_list = list(csv_data[0,1:])
+
+    # convert to dict
+    dict_ = {}
+    for r_ in range(1, csv_data.shape[0]):
+        radar_id_int = int(csv_data[r_,0])
+        dict_[radar_id_int] = {}
+        for c_ in range(1, csv_data.shape[1]):
+            field_ = field_list[c_ - 1]
+            if field_ in ['site_lat', 'site_lon', 'site_alt', 'beamwidth']:
+                dict_[radar_id_int][field_] = float(csv_data[r_, c_])
+            elif field_ in ['doppler', 'dp']:
+                if csv_data[r_, c_] == 'Yes':
+                    dict_[radar_id_int][field_] = True
+                else:
+                    dict_[radar_id_int][field_] = False
+            else:
+                dict_[radar_id_int][field_] = csv_data[r_, c_]
+
+    np.save(filename_dict, dict_)
 
 
 # BOM
