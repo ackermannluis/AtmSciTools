@@ -7704,7 +7704,6 @@ def calculate_SHI_from_radar_PPI(radar_obj, radar_id, height_0C, height_m20C,
     return SHI_2D, Ze_max_2D, X_, Y_, grid_lon, grid_lat
 def radar_detail_csv_to_dict(filename_csv, filename_dict):
 
-
     # load csv
     csv_data = open_csv_file(filename_csv)
 
@@ -7727,6 +7726,10 @@ def radar_detail_csv_to_dict(filename_csv, filename_dict):
                     dict_[radar_id_int][field_] = False
             else:
                 dict_[radar_id_int][field_] = csv_data[r_, c_]
+        
+        dict_[radar_id_int]['lat'] = dict_[radar_id_int]['site_lat']
+        dict_[radar_id_int]['lon'] = dict_[radar_id_int]['site_lon']
+        dict_[radar_id_int]['alt'] = dict_[radar_id_int]['site_alt']
 
     np.save(filename_dict, dict_)
 
