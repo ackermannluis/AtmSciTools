@@ -373,21 +373,9 @@ def return_aus_topo():
 
 # NCI - Gadi
 def gadi_get_job_id():
-    job_id_filename_list = list_files_recursive('.', 'job_id_file.txt')
-    if len(job_id_filename_list) == 1:
-        with open(job_id_filename_list[0]) as file_:
-            job_id = file_.readline().split('/')[-1].split('.')[0]
-        return job_id
-    else:
-        return None
+    return str(os.getenv('PBS_JOBID').split('.')[0])
 def gadi_get_job_path():
-    job_id_filename_list = list_files_recursive('.', 'job_id_file.txt')
-    if len(job_id_filename_list) == 1:
-        with open(job_id_filename_list[0]) as file_:
-            job_path = file_.readline().strip() + '/'
-        return job_path
-    else:
-        return None
+    return f"/jobfs/{os.getenv('PBS_JOBID')}/"
 
 # Hail
 def shi_to_mesh75(SHI_):
@@ -16863,8 +16851,8 @@ def create_ax(fig, x_start, y_start, x_width, y_width):
     ax = fig.add_axes([x_start, y_start, x_width, y_width])
     return ax
 def add_text_to_ax(ax, x, y, text_, fontsize=10, ha='center', va='bottom', rotation=0, color='black',
-                   facecolor='white', edgecolor='white'):
-    ax.text(x, y, text_, fontsize=fontsize,
+                   facecolor='white', edgecolor='white', zorder=None):
+    ax.text(x, y, text_, fontsize=fontsize, zorder=zorder,
             ha=ha, va=va, rotation=rotation, color=color, bbox={'facecolor': facecolor, 'edgecolor': edgecolor})
 def add_text_to_fig(fig, x, y, text_,fontsize=10, ha='center', va='bottom', rotation=0, color='black',
                     facecolor='white', edgecolor='white'):
