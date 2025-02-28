@@ -417,6 +417,31 @@ def Hdr_radar_calculate(dbz_array, zdr_array):
 
     # return hdr data
     return hdr_dB, hdr_mm
+def hail_damage_probability_spread(damage_freq_arr, lat_arr, lon_arr, lambda_decay=.00055, maximum_spread=5000):
+    probability_array_list = []
+    for r_ in range(damage_freq_arr.shape[0]):
+        for c_ in range(damage_freq_arr.shape[1]):
+            point_frequency = damage_freq_arr[r_, c_]
+            if point_frequency > 0:
+                # get point location
+                point_lat = lat_arr[r_, c_]
+                point_lon = lon_arr[r_, c_]
+
+                # get distance array from point
+                distance_from_point = distance_array_lat_lon_2D_arrays_degress_to_meters(lat_arr, lon_arr, point_lat,
+                                                                                         point_lon)
+
+                # Apply the exponential decay function
+                decay_function = np.exp(-lambda_decay * distance_from_point)
+                decay_function[distance_from_point > maximum_spread] = 0
+
+                # Normalize so the total probability sums to 1
+                decay_function = decay_function * point_frequency / np.sum(decay_function)
+
+                probability_array_list.append(decay_function)
+
+    probability_array = np.sum(np.stack(probability_array_list, axis=0), axis=0)
+    return probability_array
 
 
 # Misc
