@@ -418,6 +418,50 @@ def Hdr_radar_calculate(dbz_array, zdr_array):
     # return hdr data
     return hdr_dB, hdr_mm
 def hail_damage_probability_spread(damage_freq_arr, lat_arr, lon_arr, lambda_decay=.00055, maximum_spread=5000):
+    """
+    Spreads hail damage probability spatially using an exponential decay function.
+
+    This function takes a 2D array of hail damage frequencies and distributes the probability
+    spatially based on an exponential decay function. The probability decays with distance from
+    each damage point, and the spread is limited to a maximum distance.
+
+    Parameters:
+    ----------
+    damage_freq_arr : np.ndarray
+        A 2D array (n x m) where each element represents the frequency of hail damage occurrences
+        at a specific grid point.
+
+    lat_arr : np.ndarray
+        A 2D array (n x m) containing latitude values corresponding to the grid points in `damage_freq_arr`.
+
+    lon_arr : np.ndarray
+        A 2D array (n x m) containing longitude values corresponding to the grid points in `damage_freq_arr`.
+
+    lambda_decay : float, optional (default=0.00055)
+        The decay constant for the exponential function. Larger values result in a faster drop-off of probability
+        with distance.
+
+    maximum_spread : float, optional (default=5000)
+        The maximum distance (in meters) over which the probability is spread. Beyond this distance,
+        the probability is set to zero.
+
+    Returns:
+    -------
+    probability_array : np.ndarray
+        A 2D array (n x m) representing the spatially distributed probability of hail damage.
+        The total probability across all grid points sums to the total number of hail damage occurrences.
+
+    Notes:
+    ------
+    - The function iterates through all grid points in `damage_freq_arr`, identifying locations where
+      hail damage has occurred (values > 0).
+    - For each hail damage occurrence, the function computes a distance array from that point to all
+      other grid points using `distance_array_lat_lon_2D_arrays_degress_to_meters()`.
+    - An exponential decay function is applied to distribute the probability spatially.
+    - Probabilities beyond `maximum_spread` are set to zero.
+    - The final probability array is the sum of all individual probability distributions.
+    """
+
     probability_array_list = []
     for r_ in range(damage_freq_arr.shape[0]):
         for c_ in range(damage_freq_arr.shape[1]):
