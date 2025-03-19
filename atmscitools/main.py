@@ -3755,6 +3755,14 @@ def calculate_liquid_water_terminal_velocity_mod(radious_arr_mm, T_K=293.15, P_h
     U_t_cms[radious_arr_mm >= 2.726] = 9.198 * 100
 
     return U_t_cms / 100
+def calculate_liquid_water_terminal_velocity_literature(radious_arr_mm):
+    """
+
+
+    """
+    U_t = 9.65 - 10.3 * np.exp(-6 * (radious_arr_mm / 10.))
+
+    return U_t
 
 
 # unit conversions

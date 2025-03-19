@@ -5,7 +5,7 @@ import sys
 
 warnings.filterwarnings("ignore")
 
-__version__ = '1.97.1'
+__version__ = '1.98.0'
 
 # Get path to mymodule
 AtmSciTools_path = str(Path(__file__).parent)
