@@ -375,21 +375,9 @@ def return_aus_topo():
 
 # NCI - Gadi
 def gadi_get_job_id():
-    job_id_filename_list = list_files_recursive('.', 'job_id_file.txt')
-    if len(job_id_filename_list) == 1:
-        with open(job_id_filename_list[0]) as file_:
-            job_id = file_.readline().split('/')[-1].split('.')[0]
-        return job_id
-    else:
-        return None
+    return str(os.getenv('PBS_JOBID').split('.')[0])
 def gadi_get_job_path():
-    job_id_filename_list = list_files_recursive('.', 'job_id_file.txt')
-    if len(job_id_filename_list) == 1:
-        with open(job_id_filename_list[0]) as file_:
-            job_path = file_.readline().strip() + '/'
-        return job_path
-    else:
-        return None
+    return f"/jobfs/{os.getenv('PBS_JOBID')}/"
 
 # Hail
 def shi_to_mesh75(SHI_):
@@ -431,6 +419,75 @@ def Hdr_radar_calculate(dbz_array, zdr_array):
 
     # return hdr data
     return hdr_dB, hdr_mm
+def hail_damage_probability_spread(damage_freq_arr, lat_arr, lon_arr, lambda_decay=.00055, maximum_spread=5000):
+    """
+    Spreads hail damage probability spatially using an exponential decay function.
+
+    This function takes a 2D array of hail damage frequencies and distributes the probability
+    spatially based on an exponential decay function. The probability decays with distance from
+    each damage point, and the spread is limited to a maximum distance.
+
+    Parameters:
+    ----------
+    damage_freq_arr : np.ndarray
+        A 2D array (n x m) where each element represents the frequency of hail damage occurrences
+        at a specific grid point.
+
+    lat_arr : np.ndarray
+        A 2D array (n x m) containing latitude values corresponding to the grid points in `damage_freq_arr`.
+
+    lon_arr : np.ndarray
+        A 2D array (n x m) containing longitude values corresponding to the grid points in `damage_freq_arr`.
+
+    lambda_decay : float, optional (default=0.00055)
+        The decay constant for the exponential function. Larger values result in a faster drop-off of probability
+        with distance.
+
+    maximum_spread : float, optional (default=5000)
+        The maximum distance (in meters) over which the probability is spread. Beyond this distance,
+        the probability is set to zero.
+
+    Returns:
+    -------
+    probability_array : np.ndarray
+        A 2D array (n x m) representing the spatially distributed probability of hail damage.
+        The total probability across all grid points sums to the total number of hail damage occurrences.
+
+    Notes:
+    ------
+    - The function iterates through all grid points in `damage_freq_arr`, identifying locations where
+      hail damage has occurred (values > 0).
+    - For each hail damage occurrence, the function computes a distance array from that point to all
+      other grid points using `distance_array_lat_lon_2D_arrays_degress_to_meters()`.
+    - An exponential decay function is applied to distribute the probability spatially.
+    - Probabilities beyond `maximum_spread` are set to zero.
+    - The final probability array is the sum of all individual probability distributions.
+    """
+
+    probability_array_list = []
+    for r_ in range(damage_freq_arr.shape[0]):
+        for c_ in range(damage_freq_arr.shape[1]):
+            point_frequency = damage_freq_arr[r_, c_]
+            if point_frequency > 0:
+                # get point location
+                point_lat = lat_arr[r_, c_]
+                point_lon = lon_arr[r_, c_]
+
+                # get distance array from point
+                distance_from_point = distance_array_lat_lon_2D_arrays_degress_to_meters(lat_arr, lon_arr, point_lat,
+                                                                                         point_lon)
+
+                # Apply the exponential decay function
+                decay_function = np.exp(-lambda_decay * distance_from_point)
+                decay_function[distance_from_point > maximum_spread] = 0
+
+                # Normalize so the total probability sums to 1
+                decay_function = decay_function * point_frequency / np.sum(decay_function)
+
+                probability_array_list.append(decay_function)
+
+    probability_array = np.sum(np.stack(probability_array_list, axis=0), axis=0)
+    return probability_array
 
 
 # Misc
@@ -3700,6 +3757,14 @@ def calculate_liquid_water_terminal_velocity_mod(radious_arr_mm, T_K=293.15, P_h
     U_t_cms[radious_arr_mm >= 2.726] = 9.198 * 100
 
     return U_t_cms / 100
+def calculate_liquid_water_terminal_velocity_literature(radious_arr_mm):
+    """
+
+
+    """
+    U_t = 9.65 - 10.3 * np.exp(-6 * (radious_arr_mm / 10.))
+
+    return U_t
 
 
 # unit conversions
@@ -7706,7 +7771,6 @@ def calculate_SHI_from_radar_PPI(radar_obj, radar_id, height_0C, height_m20C,
     return SHI_2D, Ze_max_2D, X_, Y_, grid_lon, grid_lat
 def radar_detail_csv_to_dict(filename_csv, filename_dict):
 
-
     # load csv
     csv_data = open_csv_file(filename_csv)
 
@@ -7729,6 +7793,10 @@ def radar_detail_csv_to_dict(filename_csv, filename_dict):
                     dict_[radar_id_int][field_] = False
             else:
                 dict_[radar_id_int][field_] = csv_data[r_, c_]
+        
+        dict_[radar_id_int]['lat'] = dict_[radar_id_int]['site_lat']
+        dict_[radar_id_int]['lon'] = dict_[radar_id_int]['site_lon']
+        dict_[radar_id_int]['alt'] = dict_[radar_id_int]['site_alt']
 
     np.save(filename_dict, dict_)
 
@@ -17024,8 +17092,8 @@ def create_ax(fig, x_start, y_start, x_width, y_width):
     ax = fig.add_axes([x_start, y_start, x_width, y_width])
     return ax
 def add_text_to_ax(ax, x, y, text_, fontsize=10, ha='center', va='bottom', rotation=0, color='black',
-                   facecolor='white', edgecolor='white'):
-    ax.text(x, y, text_, fontsize=fontsize,
+                   facecolor='white', edgecolor='white', zorder=None):
+    ax.text(x, y, text_, fontsize=fontsize, zorder=zorder,
             ha=ha, va=va, rotation=rotation, color=color, bbox={'facecolor': facecolor, 'edgecolor': edgecolor})
 def add_text_to_fig(fig, x, y, text_,fontsize=10, ha='center', va='bottom', rotation=0, color='black',
                     facecolor='white', edgecolor='white'):
