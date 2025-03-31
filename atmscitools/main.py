@@ -104,11 +104,6 @@ try:
     paramiko_available = True
 except:
     paramiko_available = False
-
-
-
-
-
 # </editor-fold>
 
 
