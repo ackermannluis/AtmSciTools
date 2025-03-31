@@ -15,6 +15,7 @@ This toolkit provides a collection of tools for Atmospheric Science Research.
 - Pillow
 - pdf2image
 - scp
+- pygrib
 
 ### Install
 To install AtmSciTools, you can download and unpack the zip file, on the terminal navegate to the unzipped folder
