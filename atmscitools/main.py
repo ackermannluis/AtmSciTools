@@ -54,6 +54,7 @@ from xlrd.xldate import xldate_as_datetime
 from scp import SCPClient
 import imageio
 import pyproj as proj
+import pygrib
 
 from numpy import genfromtxt
 from scipy.optimize import curve_fit
@@ -12435,6 +12436,138 @@ def crop_image_3(img,label_):
     return img[rowstart:rowend, colstart:colend]
 
 
+# grib handling
+def inspect_grib(grib_filename):
+    """
+    Provides a quick overview of a GRIB file by printing the total number of messages, unique variable names,
+    number of vertical levels found, and spatial shape of first message.
+
+    Parameters:
+    -----------
+    grib_filename : str
+        Path to the GRIB file to be inspected.
+
+    Outputs:
+    --------
+    Prints:
+        - Number of messages in the file.
+        - Number of unique variable names.
+        - List of unique variable names.
+
+    Note:
+    -----
+    This function does not load the actual data, making it efficient for large GRIB files.
+    """
+    grbs_file = pygrib.open(grib_filename)
+
+    # Get the number of messages efficiently
+    number_of_messages = sum(1 for _ in grbs_file)
+
+    # Reset file pointer
+    grbs_file.rewind()
+
+    # Get unique variable names without loading the full data
+    var_name_list = {grb.name for grb in grbs_file}
+
+    # Reset file pointer
+    grbs_file.rewind()
+
+    # Get unique level names without loading the full data
+    level_list = {grb.level for grb in grbs_file}
+
+    # Read dimensions from first message
+    first_var = next(iter(var_name_list))  # Get any available variable
+    first_level = next(iter(level_list))
+    data_tmp, lat_arr_2D, lon_arr_2D = grbs_file.select(name=first_var, level=first_level)[0].data()
+
+    grbs_file.close()
+
+    print(f"number of messages in file: {number_of_messages}")
+    print(f"shape of lat array: {lat_arr_2D.shape}, shape of lon array: {lon_arr_2D.shape}")
+    print(f"number of unique level names: {len(level_list)}")
+    for level_name in list(sorted(level_list)):
+        print(f"\t {level_name}")
+    print(f"number of unique variable names: {len(var_name_list)}")
+    print('Variable names:')
+    for var_name in list(sorted(var_name_list)):
+        print(f"\t {var_name}")
+def load_grib_file_vars_to_dict(grib_filename, var_list=None):
+    """
+    Loads selected variables from a GRIB file into a dictionary. If no variables are specified, all are loaded.
+
+    Parameters:
+    -----------
+    grib_filename : str
+        Path to the GRIB file.
+
+    var_list : list of str, optional
+        List of variable names to load. If None, all variables are loaded.
+
+    Returns:
+    --------
+    dict :
+        A dictionary containing:
+        - 'time_analysis': Analysis time of the dataset.
+        - 'forecastTime': Forecast time step.
+        - 'lat': 2D array of latitude values.
+        - 'lon': 2D array of longitude values.
+        - Variables: 4D numpy arrays of shape (1, num_levels, lat, lon).
+
+    Notes:
+    ------
+    - If a variable does not exist in the GRIB file, it is skipped with a warning.
+    - Latitude and longitude are always included.
+    - This function efficiently reads only the requested variables to optimize performance.
+    """
+    grbs_file = pygrib.open(grib_filename)
+
+    # Collect unique variable names and levels
+    var_name_list = set()
+    level_list = set()
+    for grb in grbs_file:
+        var_name_list.add(grb.name)
+        level_list.add(grb.level)
+
+    var_name_list = sorted(var_name_list)
+    level_list = sorted(level_list)
+
+    # If var_list is provided, filter the variables
+    if var_list:
+        selected_vars = set()
+        for var_name in var_list:
+            if var_name in var_name_list:  # Ensure valid variable names
+                selected_vars.add(var_name)
+            else:
+                print(f"Warning: {var_name} not found in messages.")
+        selected_vars = sorted(selected_vars)
+    else:
+        selected_vars = set(var_name_list)  # Load all variables if none specified
+
+    # Get analysis time
+    time_anal = grbs_file.message(1).analDate
+    time_stamp_hr = grbs_file.message(1).forecastTime
+
+    # Output dictionary
+    array_dict = {'time_analysis': time_anal, 'forecastTime': time_stamp_hr}
+
+    # Read dimensions from first message
+    first_var = next(iter(selected_vars))  # Get any available variable
+    first_level = level_list[0]
+    data_tmp, lat_arr_2D, lon_arr_2D = grbs_file.select(name=first_var, level=first_level)[0].data()
+    array_dict['lat'] = lat_arr_2D
+    array_dict['lon'] = lon_arr_2D
+
+    # Initialize 3D arrays for selected variables
+    for var_name in selected_vars:
+        array_dict[var_name] = np.zeros((1, len(level_list), lat_arr_2D.shape[0], lon_arr_2D.shape[1])) * np.nan
+        for z_, level_ in enumerate(level_list):
+            try:
+                array_dict[var_name][0, z_, :, :] = grbs_file.select(name=var_name, level=level_)[0].data()[0]
+            except BaseException as error_msg:
+                print(f"Warning: {var_name} at level {level_} not found in the file.")
+
+    grbs_file.close()
+    return array_dict
 
 
 # netcdf file handling
