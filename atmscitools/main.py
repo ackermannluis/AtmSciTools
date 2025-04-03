@@ -16042,11 +16042,19 @@ def time_era5_to_seconds(time_in_era5):
     time_seconds_start = calendar.timegm(time.strptime('hours since 1900-01-01 00:00', time_format_era5))
     time_seconds_epoc = time_in_era5_in_seconds + time_seconds_start
     return time_seconds_epoc
+def time_seconds_to_era5(time_in_seconds):
+    time_in_hours = time_in_seconds / 3600
+    time_hours_start = time_era5_to_seconds(0)/3600
+    time_era5 = time_in_hours - time_hours_start
+    return time_era5
 def time_seconds_to_struct(time_in_seconds):
     time_struct_list = []
     for t_ in time_in_seconds:
         time_struct_list.append(time.gmtime(t_))
     return time_struct_list
+def time_struct_to_seconds(time_struct):
+    time_sec = time_str_to_seconds(time_struct.strftime(time_format_YMDHMS), time_format_YMDHMS)
+    return time_sec
 def time_to_row_str(time_array_seconds, time_stamp_str_YYYYmmDDHHMM):
     time_stamp_seconds = time_str_to_seconds(time_stamp_str_YYYYmmDDHHMM, time_format_parsivel)
     row_ = np.argmin(np.abs(time_array_seconds - time_stamp_seconds))
