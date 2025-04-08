@@ -13212,7 +13212,7 @@ def load_netcdf_to_dictionary(filename_, var_list=None, time_tuple_start_stop_ro
 
     # open file
     file_obj = nc.Dataset(filename_, 'r')  # ,format='NETCDF4_CLASSIC')
-    if print_debug: print('output file started')
+    if print_debug: print(f'Reading data from file: {filename_}')
 
     # get file's attr
     file_att_list_tuple = []
@@ -13252,7 +13252,7 @@ def load_netcdf_to_dictionary(filename_, var_list=None, time_tuple_start_stop_ro
 
         if print_debug: print('read variable', var_)
     file_obj.close()
-    if print_debug: print('Done!')
+    if print_debug: print('All data loaded!')
 
     return out_dict
 
