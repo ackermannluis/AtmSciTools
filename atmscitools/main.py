@@ -13369,7 +13369,7 @@ def merge_multiple_netCDF_by_time_dimension(directory_where_nc_file_are_in_chron
                                             key_search_str='', seek_in_subfolders=False, force_file_list=None,
                                             time_variable_transform_format=None, time_variable_transform_scale=1,
                                             force_output_filename=None, use_file_time_for_name=False,
-                                            output_filename_prefix='', verbose_=False):
+                                            output_filename_prefix='', verbose_=False, time_is_seconds=False):
     """
     Merges multiple files of netcdf format into one file with the name of the first file in the list with '_merged'
     :param directory_where_nc_file_are_in_chronological_order: string with the full path of the folder where the files are
@@ -13609,9 +13609,14 @@ def merge_multiple_netCDF_by_time_dimension(directory_where_nc_file_are_in_chron
         if force_output_filename is None:
             if use_file_time_for_name:
                 with nc.Dataset(output_filename_temp) as file_:
-                    time_tmp_day = convert_any_time_type_to_days(file_.variables[time_variable_name][:].filled(np.nan))
-                time_str_start = time_days_to_str(time_tmp_day[0], time_format_YMDHM)
-                time_str_stop = time_days_to_str(time_tmp_day[-1], time_format_YMDHM)
+                    if time_is_seconds:
+                        time_tmp_sec = file_.variables[time_variable_name][:].filled(np.nan)
+                        time_str_start = time_seconds_to_str(time_tmp_sec[0], time_format_YMDHM)
+                        time_str_stop = time_seconds_to_str(time_tmp_sec[-1], time_format_YMDHM)
+                    else:
+                        time_tmp_day = convert_any_time_type_to_days(file_.variables[time_variable_name][:].filled(np.nan))
+                        time_str_start = time_days_to_str(time_tmp_day[0], time_format_YMDHM)
+                        time_str_stop = time_days_to_str(time_tmp_day[-1], time_format_YMDHM)
                 output_filename = output_path + output_filename_prefix + '{0}_{1}_.nc'.format(time_str_start,
                                                                                               time_str_stop)
             elif output_path == '':
@@ -13629,6 +13634,7 @@ def merge_multiple_netCDF_by_time_dimension(directory_where_nc_file_are_in_chron
         if verbose_: print('done')
 
     return output_filename
+
 
 
 def compile_WRF_output_files(file_list, output_filename,
