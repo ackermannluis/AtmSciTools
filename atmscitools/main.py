@@ -3980,7 +3980,7 @@ def find_index_from_lat_lon(series_lat, series_lon, point_lat_list, point_lon_li
         lon_index_list = np.argmin(np.abs(lon_m - point_lon_list))
 
     return lat_index_list, lon_index_list
-def find_index_from_lat_lon_2D_arrays(lat_arr, lon_arr, point_lat, point_lon):
+def find_index_from_lat_lon_2D_arrays_old(lat_arr, lon_arr, point_lat, point_lon):
 
     lat_del_arr = lat_arr - point_lat
     lon_del_arr = lon_arr - point_lon
@@ -3988,6 +3988,112 @@ def find_index_from_lat_lon_2D_arrays(lat_arr, lon_arr, point_lat, point_lon):
     dist_arr = ( lat_del_arr**2  +  lon_del_arr**2 )**0.5
 
     return find_min_index_2d_array(dist_arr)
+def find_index_from_lat_lon_2D_arrays(lat_arr, lon_arr, point_lat, point_lon):
+    """
+    Find the index (row, column) of the grid point closest to a given
+    latitude/longitude coordinate on a structured 2D grid.
+
+    This function is optimized for repeated calls on large, structured
+    grids (e.g. WRF, BARRA, ERA5). It uses a fast jump-based search to
+    approach the target location, followed by a small local refinement
+    to guarantee correctness.
+
+    Parameters
+    ----------
+    lat_arr : np.ndarray
+        2D array of latitudes with shape (n_rows, n_cols).
+        Must be monotonic in each dimension.
+    lon_arr : np.ndarray
+        2D array of longitudes with shape (n_rows, n_cols).
+        Must be monotonic in each dimension.
+    point_lat : float
+        Latitude of the target point.
+    point_lon : float
+        Longitude of the target point.
+
+    Returns
+    -------
+    row : int
+        Row index of the closest grid point.
+    col : int
+        Column index of the closest grid point.
+
+    Notes
+    -----
+    - Assumes a structured, approximately uniform grid.
+    - Works best for projected or quasi-regular latitude/longitude grids.
+    - A final 3×3 local search ensures exact correctness.
+    - Falls back to brute force for very small grids.
+
+    Examples
+    --------
+    #>>> r, c = find_index_from_lat_lon_2d_fast(lat, lon, -28.0, 153.0)
+    """
+
+    rows, cols = lat_arr.shape
+
+    # ------------------------------------------------------------------
+    # Fallback for very small grids
+    # ------------------------------------------------------------------
+    if rows < 3 or cols < 3:
+        dist = (lat_arr - point_lat)**2 + (lon_arr - point_lon)**2
+        return np.unravel_index(np.argmin(dist), lat_arr.shape)
+
+    # ------------------------------------------------------------------
+    # Start from the center of the domain
+    # ------------------------------------------------------------------
+    row = rows // 2
+    col = cols // 2
+
+    # ------------------------------------------------------------------
+    # Iterative jump-based search
+    # ------------------------------------------------------------------
+    for _ in range(5):  # usually converges in 2–3 iterations
+        # Estimate local grid spacing
+        if row > 0:
+            dlat = lat_arr[row - 1, col] - lat_arr[row, col]
+        else:
+            dlat = lat_arr[row, col] - lat_arr[row + 1, col]
+
+        if col > 0:
+            dlon = lon_arr[row, col - 1] - lon_arr[row, col]
+        else:
+            dlon = lon_arr[row, col] - lon_arr[row, col + 1]
+
+        # Difference to target
+        diff_lat = lat_arr[row, col] - point_lat
+        diff_lon = lon_arr[row, col] - point_lon
+
+        # Jump estimate (rounded — NOT truncated)
+        row_step = int(np.round(diff_lat / dlat))
+        col_step = int(np.round(diff_lon / dlon))
+
+        # Converged
+        if row_step == 0 and col_step == 0:
+            break
+
+        # Update position with bounds checking
+        row = np.clip(row + row_step, 0, rows - 1)
+        col = np.clip(col + col_step, 0, cols - 1)
+
+    # ------------------------------------------------------------------
+    # Final local refinement (guarantees correctness)
+    # ------------------------------------------------------------------
+    rmin = max(row - 1, 0)
+    rmax = min(row + 2, rows)
+    cmin = max(col - 1, 0)
+    cmax = min(col + 2, cols)
+
+    sub_lat = lat_arr[rmin:rmax, cmin:cmax]
+    sub_lon = lon_arr[rmin:rmax, cmin:cmax]
+
+    dist = (sub_lat - point_lat)**2 + (sub_lon - point_lon)**2
+    dr, dc = np.unravel_index(np.argmin(dist), dist.shape)
+
+    return rmin + dr, cmin + dc
+
+
+
 def find_index_from_lat_lon_1D_arrays(lat_arr, lon_arr, point_lat, point_lon):
 
     lat_del_arr = lat_arr - point_lat
